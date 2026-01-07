@@ -1,0 +1,4545 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Solar Waves – Irradiance Explorer</title>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<style>
+    :root {
+      --bg: #f4f6fb;
+      --sidebar-bg: #ffffff;
+      --accent: #ff6a3d;
+      --accent-soft: #ffe0d3;
+      --border-subtle: #d3d8e4;
+      --text-main: #222631;
+      --text-muted: #6f7484;
+      --panel-bg: #f9fafc;
+      --error: #d93025;
+      --success: #0f9d58;
+      --radius-lg: 16px;
+      --radius-sm: 8px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text-main);
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    #app {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* Sidebar */
+    #sidebar {
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border-subtle);
+      padding: 14px 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      font-size: 12px;
+    }
+
+    h2 {
+      margin: 0 0 6px;
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .card {
+      background: var(--panel-bg);
+      border-radius: var(--radius-lg);
+      padding: 10px 10px 12px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .card + .card { margin-top: 4px; }
+
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 5px 7px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      font-size: 11px;
+      outline: none;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-soft);
+    }
+
+    button {
+      border-radius: 999px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      padding: 5px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .row.stacked {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    select {
+      width: 100%;
+      padding: 4px 6px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      font-size: 11px;
+      background: #fff;
+    }
+
+    .metric-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .metric-list li {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2px;
+    }
+
+    .metric-label { color: var(--text-muted); }
+    .metric-value { font-weight: 500; color: var(--text-main); }
+
+    .slider-block {
+      margin-bottom: 8px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 11px;
+      margin-bottom: 2px;
+    }
+
+    .slider-header span.value {
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      margin: 0;
+    }
+
+    .small-note {
+      font-size: 10px;
+      color: var(--text-muted);
+      line-height: 1.4;
+      margin-top: 4px;
+    }
+.checkbox-row {
+  margin-top: 6px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  user-select: none;
+}
+.checkbox-row input[type="checkbox"] {
+  transform: translateY(1px);
+  margin-right: 6px;
+}
+
+
+    #simError {
+      display: none;
+      margin-top: 4px;
+      padding: 4px 6px;
+      border-radius: var(--radius-sm);
+      background: #fdecea;
+      color: var(--error);
+      font-size: 10px;
+    }
+
+    #simStatus {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Main 3D area */
+    #main {
+      position: relative;
+      background: #d2d6df;
+    }
+
+    #canvasContainer {
+      position: absolute;
+      inset: 0;
+    }
+
+    /* Legend */
+    #legend {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 180px;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(6px);
+      padding: 8px 10px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-subtle);
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    #legend-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    #legend-bar {
+      position: relative;
+      height: 6px;
+      border-radius: 999px;
+      background: linear-gradient(to right, #2b7bff, #35c88a, #f2c744, #ff6a3d);
+      margin-bottom: 4px;
+      overflow: hidden;
+    }
+
+    #legend-min,
+    #legend-max {
+      display: inline-block;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #legend-footer {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    #legend-footer .legend-note {
+      font-size: 10px;
+      color: var(--text-muted);
+      line-height: 1.2;
+    }
+
+    #legend-footer .legend-scale {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #snapshotTooltip {
+      position: fixed;
+      pointer-events: none;
+      background: rgba(15, 17, 26, 0.9);
+      color: #fff;
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      line-height: 1.4;
+      z-index: 50;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      max-width: 220px;
+    }
+/* Location modal */
+    #locationModal {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 17, 26, 0.35);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+    }
+
+    #locationModalInner {
+      background: #fff;
+      border-radius: var(--radius-lg);
+      padding: 10px 12px;
+      width: 260px;
+      box-shadow: 0 10px 30px rgba(15, 17, 26, 0.35);
+      font-size: 11px;
+    }
+
+    #locationList {
+      max-height: 200px;
+      overflow-y: auto;
+      margin: 6px 0 8px;
+      padding: 0;
+      list-style: none;
+    }
+
+    #locationList li {
+      margin-bottom: 4px;
+    }
+
+    #locationList label {
+      display: flex;
+      gap: 4px;
+      cursor: pointer;
+      margin-bottom: 0;
+    }
+
+    #locationList span {
+      flex: 1;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+
+    #locationModalActions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    /* Misc */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 0 6px;
+      height: 16px;
+      border-radius: 999px;
+      background: #eef2ff;
+      font-size: 10px;
+      color: #4c5fd7;
+    }
+  
+    .metric-list li { gap: 8px; }
+    .metric-label { padding-right: 6px; }
+    .metric-value { padding-left: 6px; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+
+
+    .loading-pill{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-top:10px;
+      padding:10px 12px;
+      border:1px solid rgba(255, 127, 24, 0.30);
+      background: rgba(255, 127, 24, 0.10);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.3;
+    }
+    .spinner{
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid rgba(0,0,0,0.15);
+      border-top-color: rgba(0,0,0,0.55);
+      animation: spin 0.9s linear infinite;
+      flex: 0 0 auto;
+    }
+    @keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
+
+</style>
+</head>
+<body>
+<div id="app">
+<aside id="sidebar">
+<div class="card">
+<h2>Location</h2>
+<div class="row">
+<input id="locationInput" placeholder="e.g. Sydney" type="text"/>
+<button id="locationSearchBtn">Search</button>
+</div>
+<div id="locationLoading" class="loading-pill" style="display:none;">
+  <span class="spinner" aria-hidden="true"></span>
+  <span id="locationLoadingText">Searching…</span>
+</div>
+<div class="small-note" id="locationStatus">No location selected.</div>
+<ul class="metric-list" style="margin-top:4px;">
+<li><span class="metric-label">Selected</span><span class="metric-value" id="metricLocation">–</span></li>
+</ul>
+</div>
+
+<div class="card">
+<h2>Results</h2>
+<ul class="metric-list" style="margin-top:4px;">
+<li><span class="metric-label">Total panels</span><span class="metric-value" id="metricPanels">–</span></li>
+<li><span class="metric-label">Annual output</span><span class="metric-value" id="metricAnnual">–</span></li>
+<li><span class="metric-label">Mean POA</span><span class="metric-value" id="metricPOA">–</span></li>
+<li><span class="metric-label">Water saved</span><span class="metric-value" id="metricWaterSaved">–</span></li>
+</ul>
+<div class="row" style="margin-top:8px;">
+<button disabled="" id="downloadBtn">Download simulation data</button>
+</div>
+<div class="small-note" id="downloadHint">Exports an audit pack ZIP for Water runs (includes shading samples + SVF).</div>
+</div>
+
+<div class="card">
+<h2>Array</h2>
+<div class="row stacked">
+<label for="arrayType">Array type</label>
+<select id="arrayType">
+<option value="waves">Solar Waves</option>
+<option value="roof">Solar Roof</option>
+</select>
+</div>
+<div class="row stacked">
+<label for="panelType">Panel type</label>
+<select id="panelType"></select>
+</div>
+<div id="wavesControls">
+<div class="slider-block">
+<div class="slider-header">
+<span>Panels per row</span>
+<span class="value"><span id="wavesPanelsPerRowVal">5</span></span>
+</div>
+<input id="wavesPanelsPerRow" max="8" min="3" step="1" type="range" value="5"/>
+</div>
+</div>
+<div id="roofControls" style="display:none;">
+<div class="slider-block">
+<div class="slider-header">
+<span>Roof columns (X)</span>
+<span class="value"><span id="roofColsVal">20</span></span>
+</div>
+<input id="roofCols" max="24" min="4" step="1" type="range" value="20"/>
+</div>
+<div class="slider-block">
+<div class="slider-header">
+<span>Roof rows (Y)</span>
+<span class="value"><span id="roofRowsVal">4</span></span>
+</div>
+<input id="roofRows" max="8" min="1" step="1" type="range" value="4"/>
+</div>
+<div class="slider-block">
+<div class="slider-header">
+<span>Roof tilt (deg)</span>
+<span class="value"><span id="roofTiltVal">15°</span></span>
+</div>
+<input id="roofTilt" max="40" min="0" step="1" type="range" value="15"/>
+</div>
+</div>
+<div class="slider-block">
+<div class="slider-header">
+<span>Azimuth (deg)</span>
+<span class="value"><span id="azimuthVal">180°</span></span>
+</div>
+<input id="azimuth" max="360" min="0" step="1" type="range" value="180"/>
+</div>
+<div class="slider-block">
+<div class="slider-header">
+<span>Elevation off ground (m)</span>
+<span class="value"><span id="elevationVal">0.6 m</span></span>
+</div>
+<input id="elevation" max="10.0" min="0.0" step="0.1" type="range" value="0.6"/>
+</div>
+<div class="row stacked">
+<label for="surfaceType">Surface</label>
+<select id="surfaceType">
+<option selected="" value="ground">Ground</option>
+<option value="water">Water</option>
+</select>
+</div>
+<div class="row stacked">
+<label for="renderMode">Rendering mode</label>
+<select id="renderMode">
+<option value="textures" selected>Realistic textures</option>
+<option value="heatmap">Snapshot / heatmap</option>
+</select>
+</div>
+<div class="slider-block" id="waterWidthRow" style="display:none;">
+<div class="slider-header">
+<span>Water width (m)</span>
+<span class="value"><span id="waterWidthVal">5.0 m</span></span>
+</div>
+<input id="waterWidth" max="20.0" min="1.0" step="0.5" type="range" value="5.0"/>
+<div class="small-note">Width is the lateral extent of the water surface under the array (e.g., canal vs lake). The surface stays centered; only its width changes.</div>
+</div>
+<div class="small-note">
+          Simulation uses hourly weather data via Open-Meteo and a simplified POA / temperature model.
+          Panel / ground colours show relative irradiance; brighter ≈ more annual light.
+        </div>
+<div id="simError"></div>
+<div id="simStatus"></div>
+</div>
+</aside>
+<main id="main">
+<div id="canvasContainer"></div>
+<div id="legend">
+<div id="legend-title">
+<span>Ground / panel irradiance</span>
+<span id="legend-mean">Mean POA: –</span>
+</div>
+<div id="legend-bar"></div>
+<div id="legend-footer">
+<div class="legend-note">Higher colour = more annual light</div>
+<div class="legend-scale">
+<span id="legend-min">0</span>
+<span id="legend-max">1000</span>
+</div>
+</div>
+</div>
+<div id="locationModal">
+<div id="locationModalInner">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+<div style="font-weight:600;">Select a location</div>
+<span class="pill" id="locationModalProvider"></span>
+</div>
+<ul id="locationList"></ul>
+<div id="locationModalActions">
+<button id="locationModalCancel">Cancel</button>
+<button id="locationModalApply">Apply</button>
+</div>
+</div>
+</div>
+</main>
+</div>
+<script src="https://unpkg.com/three@0.140.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.140.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://unpkg.com/three@0.140.0/examples/js/loaders/RGBELoader.js"></script>
+<script>
+    (function() {
+      const API_BASE = "https://sw-api-sn0k.onrender.com";
+const DEBUG_FRAME = false;
+function dbgFrame(...args){ if (DEBUG_FRAME) console.log("[frame]", ...args); }
+// --- Real-time irradiance (hourly) via Open-Meteo (frontend) ------------------
+// Goal: in "real-time" mode, drive panel colors with physically interpretable W/m²,
+// then apply GPU-derived beam transmittance (tau) as a shadow mask.
+
+const REALTIME_METEO_TTL_MS = 10 * 60 * 1000; // refresh at most every 10 minutes
+let realtimeMeteoCache = null; // { tsMs: number[], dni: number[], dhi: number[], ghi: number[] }
+let realtimeMeteoLastFetchMs = 0;
+let realtimeMeteoInFlight = null;
+
+function _asNumArray(a) {
+  return Array.isArray(a) ? a.map(v => (v == null ? null : Number(v))) : null;
+}
+
+async function fetchRealtimeMeteoHourly(lat, lon) {
+  // Use UTC to keep indexing consistent with our sun position function (UTC-based).
+  // Prefer DNI + DHI + GHI if available; fallback to "shortwave_radiation" as GHI.
+  const url =
+    "https://api.open-meteo.com/v1/forecast" +
+    "?latitude=" + encodeURIComponent(lat) +
+    "&longitude=" + encodeURIComponent(lon) +
+    "&hourly=direct_normal_irradiance,diffuse_radiation,shortwave_radiation" +
+    "&timezone=UTC";
+
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error("Open-Meteo HTTP " + resp.status);
+  const j = await resp.json();
+  const h = j && j.hourly ? j.hourly : null;
+  if (!h || !Array.isArray(h.time)) throw new Error("Open-Meteo: missing hourly.time");
+
+  const tsMs = h.time.map(t => Date.parse(t + "Z")); // Open-Meteo returns ISO without Z in UTC mode
+  const dni = _asNumArray(h.direct_normal_irradiance);
+  const dhi = _asNumArray(h.diffuse_radiation);
+  const ghi = _asNumArray(h.shortwave_radiation);
+
+  if (!dni || !dhi || !ghi) throw new Error("Open-Meteo: missing irradiance series");
+
+  realtimeMeteoCache = { tsMs, dni, dhi, ghi };
+  realtimeMeteoLastFetchMs = Date.now();
+  realtimeMeteoInFlight = null;
+  return realtimeMeteoCache;
+}
+
+function ensureRealtimeMeteo() {
+  if (!currentLocation) return;
+  const now = Date.now();
+  const fresh = realtimeMeteoCache && (now - realtimeMeteoLastFetchMs) < REALTIME_METEO_TTL_MS;
+  if (fresh) return;
+
+  if (realtimeMeteoInFlight) return;
+  realtimeMeteoInFlight = fetchRealtimeMeteoHourly(currentLocation.lat, currentLocation.lon)
+    .catch(err => {
+      console.warn("Realtime meteo fetch failed:", err);
+      realtimeMeteoInFlight = null;
+    });
+}
+
+function getIrradianceAtUTC(dateObj) {
+  if (!realtimeMeteoCache || !realtimeMeteoCache.tsMs || realtimeMeteoCache.tsMs.length === 0) return null;
+  const t = dateObj instanceof Date ? dateObj.getTime() : Number(dateObj);
+  if (!Number.isFinite(t)) return null;
+
+  // Find nearest hour index (ts is hourly so linear scan is fine; arrays are ~168 long).
+  const ts = realtimeMeteoCache.tsMs;
+  let bestI = 0;
+  let bestD = Math.abs(ts[0] - t);
+  for (let i = 1; i < ts.length; i++) {
+    const d = Math.abs(ts[i] - t);
+    if (d < bestD) { bestD = d; bestI = i; }
+  }
+  return {
+    dni: realtimeMeteoCache.dni[bestI],
+    dhi: realtimeMeteoCache.dhi[bestI],
+    ghi: realtimeMeteoCache.ghi[bestI]
+  };
+}
+
+function computePOA_Wm2_fromIrradiance(nWorld, sunRay, irr, surfaceType) {
+  // nWorld: surface normal, sunRay: unit vector from surface toward sun (same convention as cosInc below)
+  // irr: {dni, dhi, ghi} at current hour
+  if (!irr) return null;
+
+  const dni = Number(irr.dni);
+  const dhi = Number(irr.dhi);
+  const ghi = Number(irr.ghi);
+  if (!Number.isFinite(dni) || !Number.isFinite(dhi) || !Number.isFinite(ghi)) return null;
+
+  // Incidence term
+  const cosInc = Math.max(0, nWorld.dot(sunRay));
+
+  // Tilt (0 = horizontal up, 90 = vertical) from normal vs +Y
+  const cosTilt = THREE.MathUtils.clamp(nWorld.y, -1, 1);
+
+  // Simple isotropic sky diffuse + ground-reflected component.
+  // Albedo heuristic: water lower than ground.
+  const albedo = (String(surfaceType || "").toLowerCase() === "water") ? 0.06 : 0.20;
+
+  const beam = dni * cosInc;
+  const diffuse = dhi * (1 + cosTilt) * 0.5;
+  const groundRef = ghi * albedo * (1 - cosTilt) * 0.5;
+
+  const poa = beam + diffuse + groundRef;
+  return Math.max(0, poa);
+}
+// -----------------------------------------------------------------------------
+
+
+      // DOM
+      const canvasContainer = document.getElementById("canvasContainer");
+
+      const locationInput = document.getElementById("locationInput");
+      const locationSearchBtn = document.getElementById("locationSearchBtn");
+      const locationStatusEl = document.getElementById("locationStatus");
+      const locationLoadingEl = document.getElementById("locationLoading");
+const locationLoadingTextEl = document.getElementById("locationLoadingText");
+const metricLocationEl = document.getElementById("metricLocation");
+      const metricPanelsEl = document.getElementById("metricPanels");
+      const metricAnnualEl = document.getElementById("metricAnnual");
+      const metricPOAEl = document.getElementById("metricPOA");
+            const metricWaterSavedEl = document.getElementById("metricWaterSaved");
+      const downloadBtn = document.getElementById("downloadBtn");
+      const downloadHint = document.getElementById("downloadHint");
+      const arrayTypeEl = document.getElementById("arrayType");
+      const panelTypeEl = document.getElementById("panelType");
+      const wavesControlsEl = document.getElementById("wavesControls");
+      const roofControlsEl = document.getElementById("roofControls");
+      const wavesPanelsPerRowEl = document.getElementById("wavesPanelsPerRow");
+      const wavesPanelsPerRowValEl = document.getElementById("wavesPanelsPerRowVal");
+      const roofColsEl = document.getElementById("roofCols");
+      const roofColsValEl = document.getElementById("roofColsVal");
+      const roofRowsEl = document.getElementById("roofRows");
+      const roofRowsValEl = document.getElementById("roofRowsVal");
+      const roofTiltEl = document.getElementById("roofTilt");
+      const roofTiltValEl = document.getElementById("roofTiltVal");
+      const azimuthEl = document.getElementById("azimuth");
+      const azimuthValEl = document.getElementById("azimuthVal");
+      const elevationEl = document.getElementById("elevation");
+      const elevationValEl = document.getElementById("elevationVal");
+      const surfaceTypeEl = document.getElementById("surfaceType");
+      const renderModeEl = document.getElementById("renderMode");
+const surfaceEl = surfaceTypeEl; // alias for legacy references
+
+      const waterWidthEl = document.getElementById("waterWidth");
+      const waterWidthValEl = document.getElementById("waterWidthVal");
+      const waterWidthRowEl = document.getElementById("waterWidthRow");
+
+      const simErrorEl = document.getElementById("simError");
+      const simStatusEl = document.getElementById("simStatus");
+
+      const legendMeanEl = document.getElementById("legend-mean");
+      const legendNoteEl = document.querySelector("#legend-footer .legend-note");
+      const legendMinEl = document.getElementById("legend-min");
+      const legendMaxEl = document.getElementById("legend-max");
+
+      // Location modal
+      const locationModal = document.getElementById("locationModal");
+      const locationModalProvider = document.getElementById("locationModalProvider");
+      const locationListEl = document.getElementById("locationList");
+      const locationModalCancelBtn = document.getElementById("locationModalCancel");
+      const locationModalApplyBtn = document.getElementById("locationModalApply");
+
+      // Three.js globals
+      let scene, camera, renderer, controls;
+      let groundMesh;
+      let groundDims = { sx: 20, sz: 20 };
+      let directionGroup;
+      let northArrowGroup;
+      let arrayGroup; // panels + edges
+
+      // Overlay/debug visuals (disable by default for production UI)
+      const SHOW_DIRECTION_MARKERS = false; // N/E/S/W disc sprites
+      const SHOW_SNAPSHOT_CONTOURS = false; // snapshot bounding boxes + labels
+
+      // --- GPU shadow/transmittance sampling (water/ground plane) ---
+      let sunLight;
+      let shadowRT, shadowCam, shadowMat, shadowReadBuf;
+      let shadowOverlayMesh;
+      let lastBeamTransmittanceUnderArray = 1.0;
+      let lastBeamTransmittanceFull = 1.0;
+      let _shadingJobToken = 0;
+      let _finalShadingTimer = null;
+      let shadowResInteractive = 128;
+      let shadowResFinal = 512;
+      let lastBeamTransmittance = 1.0;
+      let lastSunAzDeg = 180.0, lastSunElDeg = 45.0;
+      let _realtimeUpdateBusy = false;
+      let _realtimeUpdateToken = 0;
+
+      let panelMeshes = [];
+      // Expose live panel mesh list for console debugging (getter stays valid across rebuilds)
+      try {
+        Object.defineProperty(window, 'panelMeshes', { configurable: true, get: () => panelMeshes });
+      } catch (e) {
+        window.panelMeshes = panelMeshes;
+      }
+      let groundSize = 20;
+      let waterWidthM = 5.0; // adjustable canal/lake width in meters (surface stays centered)
+
+      // Shadow mask storage (GPU readback) for per-panel / ground visualization
+      let lastShadowMaskPixels = null;
+      let lastShadowMaskW = 0, lastShadowMaskH = 0;
+      let groundShadowTexture = null;
+
+      let waterShadowTexture = null;
+        
+
+      // ------------------------------------------------------------
+      // Water shadow mask ownership / invalidation
+      // ------------------------------------------------------------
+      // When Surface=Water, we sample a low-res shadow mask texture for per-panel shading.
+      // That mask must never "bleed" between array types (waves/roof) or after geometry changes,
+      // otherwise colors can appear swapped or panels can be mis-mapped.
+      let lastShadowMaskOwnerKey = null;
+      let lastShadowMaskOwnerType = null; // "waves" | "roof"
+      const waterMaskStateByType = {
+        waves: { key: null, pixels: null, w: 0, h: 0 },
+        roof:  { key: null, pixels: null, w: 0, h: 0 }
+      };
+
+      function computeWaterCacheKey() {
+        const at = (arrayTypeEl && arrayTypeEl.value === "roof") ? "roof" : "waves";
+        const surf = (surfaceTypeEl && surfaceTypeEl.value) ? String(surfaceTypeEl.value).toLowerCase() : "";
+        const az = clampAzimuth(parseInt((azimuthEl && azimuthEl.value) ? azimuthEl.value : "180", 10));
+        const elev = parseFloat((elevationEl && elevationEl.value) ? elevationEl.value : "0.0");
+        const lat = (currentLocation && Number.isFinite(Number(currentLocation.lat))) ? Number(currentLocation.lat) : 0;
+        const ww = (typeof waterWidthM === "number" && Number.isFinite(waterWidthM)) ? waterWidthM : 0;
+
+        let geom = {};
+        if (at === "waves") {
+          geom = { panelsPerRow: parseInt((wavesPanelsPerRowEl && wavesPanelsPerRowEl.value) ? wavesPanelsPerRowEl.value : "5", 10) };
+        } else {
+          geom = {
+            cols: parseInt((roofColsEl && roofColsEl.value) ? roofColsEl.value : "20", 10),
+            rows: parseInt((roofRowsEl && roofRowsEl.value) ? roofRowsEl.value : "4", 10),
+            tilt: parseFloat((roofTiltEl && roofTiltEl.value) ? roofTiltEl.value : "15")
+          };
+        }
+
+        // Keep key compact but stable.
+        return JSON.stringify({ at, surf, az, elev, ww, latSign: (lat >= 0 ? 1 : -1), geom });
+      }
+
+      function invalidateWaterState(reason = "") {
+        lastShadowMaskOwnerKey = null;
+        lastShadowMaskOwnerType = null;
+        lastShadowMaskPixels = null;
+        lastShadowMaskW = 0;
+        lastShadowMaskH = 0;
+        // Keep per-type caches, but mark them stale.
+        waterMaskStateByType.waves.key = null;
+        waterMaskStateByType.roof.key = null;
+      }
+let waterShadowMesh = null;
+        function updateGroundShadowTextureFromMask(maskPixels, w, h) {
+        if (currentRenderMode === 'textures') {
+          // In textured mode we keep the ground/water material maps intact (no heatmap shadow map overlays).
+          if (waterShadowMesh) waterShadowMesh.visible = false;
+          return;
+        }
+        // The per-pixel shadow mask visualization can introduce a visible grid pattern
+        // on large surfaces (ground/water) because it is a relatively low-resolution
+        // DataTexture. For presentation-quality visuals we rely on the projected shadow
+        // overlay (see updateProjectedShadow) and keep the mask only for export/audit.
+        const SHOW_SURFACE_SHADOW_MASK_TEXTURE = false;
+        if (!SHOW_SURFACE_SHADOW_MASK_TEXTURE) {
+          if (waterShadowMesh) waterShadowMesh.visible = false;
+          if (groundMesh && groundMesh.material && groundMesh.material.map) {
+            groundMesh.material.map = null;
+            groundMesh.material.needsUpdate = true;
+          }
+          return;
+        }
+        // maskPixels: Uint8Array of [0..255] "shadow strength" samples (0 = no shadow, 255 = full shadow)
+        // For Ground: apply as grayscale map on the ground mesh (legacy behaviour).
+        // For Water: apply as alphaMap on a dedicated overlay mesh so the shadow is one color and smooth.
+        if (!maskPixels || !w || !h || !groundMesh) return;
+
+        const isWater = (surfaceEl && surfaceEl.value === "Water");
+        const n = w * h;
+
+        // Build RGBA buffer
+        const rgba = new Uint8Array(n * 4);
+        if (isWater) {
+          // Black with varying alpha
+          for (let i = 0; i < n; i++) {
+            const a = maskPixels[i]; // 0..255
+            const j = i * 4;
+            rgba[j] = 0;
+            rgba[j + 1] = 0;
+            rgba[j + 2] = 0;
+            rgba[j + 3] = a;
+          }
+        } else {
+          // Grayscale as RGB (alpha opaque)
+          for (let i = 0; i < n; i++) {
+            const v = maskPixels[i];
+            const j = i * 4;
+            rgba[j] = v;
+            rgba[j + 1] = v;
+            rgba[j + 2] = v;
+            rgba[j + 3] = 255;
+          }
+        }
+
+        if (isWater) {
+          if (!waterShadowMesh) return;
+          if (!waterShadowTexture || waterShadowTexture.image.width !== w || waterShadowTexture.image.height !== h) {
+            waterShadowTexture = new THREE.DataTexture(rgba, w, h, THREE.RGBAFormat);
+            waterShadowTexture.needsUpdate = true;
+            waterShadowTexture.flipY = false;
+            waterShadowTexture.generateMipmaps = false;
+            waterShadowTexture.minFilter = THREE.LinearFilter;
+            waterShadowTexture.magFilter = THREE.LinearFilter;
+            // Ensure overlay mesh uses alphaMap
+            const mat = waterShadowMesh.material;
+            mat.alphaMap = waterShadowTexture;
+            mat.needsUpdate = true;
+          } else {
+            waterShadowTexture.image.data = rgba;
+            waterShadowTexture.needsUpdate = true;
+          }
+          waterShadowMesh.visible = true;
+          // Keep overlay aligned with ground mesh
+          waterShadowMesh.position.copy(groundMesh.position);
+          waterShadowMesh.rotation.copy(groundMesh.rotation);
+          waterShadowMesh.scale.copy(groundMesh.scale);
+          // Tiny offset to avoid z-fighting
+          waterShadowMesh.position.y += 0.003;
+          // Do not set a map on the water surface itself (prevents banded coloration)
+          groundMesh.material.map = null;
+          groundMesh.material.needsUpdate = true;
+        } else {
+          // Ground case
+          if (waterShadowMesh) waterShadowMesh.visible = false;
+          if (!groundShadowTexture || groundShadowTexture.image.width !== w || groundShadowTexture.image.height !== h) {
+            groundShadowTexture = new THREE.DataTexture(rgba, w, h, THREE.RGBAFormat);
+            groundShadowTexture.needsUpdate = true;
+            groundShadowTexture.flipY = false;
+            groundShadowTexture.generateMipmaps = false;
+            groundShadowTexture.minFilter = THREE.LinearFilter;
+            groundShadowTexture.magFilter = THREE.LinearFilter;
+            groundMesh.material.map = groundShadowTexture;
+            groundMesh.material.needsUpdate = true;
+          } else {
+            groundShadowTexture.image.data = rgba;
+            groundShadowTexture.needsUpdate = true;
+          }
+        }
+      }
+
+      function applyPerPanelShadowGradient() {
+        if (currentRenderMode === 'textures') return;
+        // Works in BOTH modes:
+        // - Snapshot: base POA comes from the snapshot daily_mean_poa_w_m2 per orientation.
+        // - Realtime: base POA is a fast incidence proxy per panel.
+        if (!lastShadowMaskPixels || !lastShadowMaskW || !lastShadowMaskH) return;
+        if (!groundMesh) return;
+        if (!panelMeshes || panelMeshes.length === 0) return;
+
+        // Water mode: only apply a shadow mask that matches the current geometry "key".
+        // This prevents cross-contamination (e.g. roof picking up waves mask) and stale sampling.
+        const _surf = (surfaceTypeEl && surfaceTypeEl.value) ? String(surfaceTypeEl.value).toLowerCase() : "";
+        if (_surf === "water") {
+          const _key = computeWaterCacheKey();
+          if (!lastShadowMaskOwnerKey || lastShadowMaskOwnerKey !== _key) return;
+        }
+
+
+        const w = lastShadowMaskW, h = lastShadowMaskH;
+        const pixels = lastShadowMaskPixels;
+
+        // Sun direction (from surface toward sun) for proxy POA when not in snapshot mode.
+        let sunRay = null;
+        if (!useSnapshotColors && sunLight) {
+          const sunDir = new THREE.Vector3().subVectors(sunLight.target.position, sunLight.position).normalize();
+          sunRay = sunDir.clone().negate();
+        }
+
+        // In snapshot mode, preserve the snapshot colour mapping (min/max) and only
+        // apply the GPU-derived shadow (tau) as an intensity modulation.
+        // Otherwise the palette will "jump" after the water mask is computed.
+        const values = [];
+        const baseValues = [];
+        const q = new THREE.Quaternion();
+        const nLocal = new THREE.Vector3(0, 1, 0);
+        const nWorld = new THREE.Vector3();
+        const world = new THREE.Vector3();
+
+        for (const p of panelMeshes) {
+          // Determine base POA
+          let base = null;
+          let beamPart = null;
+          let diffusePart = 0;
+          let groundRefPart = 0;
+          if (useSnapshotColors && orientationSnapshotMap && orientationSnapshotMap.size) {
+            const key = p?.userData?.orientationKey;
+            const o = key ? orientationSnapshotMap.get(key) : null;
+            if (o && Number.isFinite(o.daily_mean_poa_w_m2)) base = Number(o.daily_mean_poa_w_m2);
+                    } else if (sunRay) {
+            // Real-time: use hourly irradiance (DNI/DHI/GHI) when available.
+            // Apply tau to BEAM only; diffuse + ground-reflected are left unshadowed.
+            p.getWorldQuaternion(q);
+            nWorld.copy(nLocal).applyQuaternion(q).normalize();
+            // Solar Waves panels can be constructed with reversed winding/normal for one half of the fold.
+            // Enforce an upward-facing normal to keep sun-facing side mapped to higher POA.
+            if ((arrayTypeEl && arrayTypeEl.value === "waves") && nWorld.y < 0) nWorld.multiplyScalar(-1);
+
+
+            ensureRealtimeMeteo();
+            const irr = getIrradianceAtUTC(new Date());
+            const surfaceType = (surfaceEl && surfaceEl.value) ? surfaceEl.value : "";
+
+            if (irr && Number.isFinite(Number(irr.dni)) && Number.isFinite(Number(irr.dhi)) && Number.isFinite(Number(irr.ghi))) {
+              const dni = Number(irr.dni), dhi = Number(irr.dhi), ghi = Number(irr.ghi);
+              const cosInc = Math.max(0, nWorld.dot(sunRay));
+              const cosTilt = THREE.MathUtils.clamp(nWorld.y, -1, 1);
+              const albedo = (String(surfaceType).toLowerCase() === "water") ? 0.06 : 0.20;
+
+              beamPart = dni * cosInc;
+              diffusePart = dhi * (1 + cosTilt) * 0.5;
+              groundRefPart = ghi * albedo * (1 - cosTilt) * 0.5;
+              base = Math.max(0, beamPart + diffusePart + groundRefPart);
+            } else {
+              // Fallback proxy: diffuse + beam*cos(incidence)
+              const cosInc = Math.max(0, nWorld.dot(sunRay));
+              const diffuseProxy = 200;        // W/m² baseline
+              const beamProxy = 800 * cosInc;  // W/m² scaled by incidence
+              beamPart = beamProxy;
+              diffusePart = diffuseProxy;
+              groundRefPart = 0;
+              base = diffuseProxy + beamProxy;
+            }
+          }
+
+          if (base == null || !Number.isFinite(base)) { values.push(null); baseValues.push(null); continue; }
+          baseValues.push(base);
+
+          // Sample tau from the GPU shadow mask at the panel's footprint position on the ground plane.
+          p.getWorldPosition(world);
+          const local = groundMesh.worldToLocal(world.clone());
+          const sx = (groundDims && Number.isFinite(groundDims.sx)) ? groundDims.sx : groundSize;
+          const sz = (groundDims && Number.isFinite(groundDims.sz)) ? groundDims.sz : groundSize;
+          const u = (local.x / sx) + 0.5;
+          const v = (local.z / sz) + 0.5;
+          if (!(u >= 0 && u <= 1 && v >= 0 && v <= 1)) { values.push(base); continue; }
+
+          const xi = Math.max(0, Math.min(w - 1, Math.floor(u * (w - 1))));
+          const yi = Math.max(0, Math.min(h - 1, Math.floor((1 - v) * (h - 1))));
+          const idx = (yi * w + xi) * 4;
+          const mask = pixels.length === w * h * 4 ? pixels[idx] : pixels[yi * w + xi];
+          const tau = (mask / 255.0);
+
+          const adj = (beamPart != null ? (beamPart * tau + diffusePart + groundRefPart) : (base * tau));
+          values.push(adj);
+          p.userData.poa_eff_w_m2 = adj;
+          p.userData.tau_beam = tau;
+        }
+
+        const mm = computeRobustMinMax(values, 0, 1000);
+        let vmin = mm.min;
+        let vmax = mm.max;
+
+        // Snapshot mode: keep the same scale as the snapshot base mapping.
+        if (useSnapshotColors && snapshotLegendMinMax && Number.isFinite(snapshotLegendMinMax.min) && Number.isFinite(snapshotLegendMinMax.max)) {
+          vmin = snapshotLegendMinMax.min;
+          vmax = snapshotLegendMinMax.max;
+        }
+
+// Keep legend coherent
+        if (!useSnapshotColors || !snapshotLegendMinMax) {
+          currentLegendMode = 'realtime';
+          updateLegendUI({
+            min: vmin,
+            max: vmax,
+            meanText: legendMeanEl ? legendMeanEl.textContent : null,
+            noteText: 'Higher colour = higher POA (W/m²)'
+          });
+        }
+
+        for (let i = 0; i < panelMeshes.length; i++) {
+          const p = panelMeshes[i];
+          const valAdj = values[i];
+          const valBase = baseValues[i];
+          if (!Number.isFinite(valAdj) || !Number.isFinite(valBase)) continue;
+
+          // Snapshot: map by base POA and dim/brighten by tau-derived modulation.
+          // Real-time: map by the adjusted value.
+          const tau = (p && p.userData && Number.isFinite(p.userData.tau_beam)) ? p.userData.tau_beam : 1.0;
+
+// Snapshot mode: keep hue mapping locked to the snapshot base POA (valBase) using snapshotLegendMinMax.
+// Apply water shading as intensity modulation only (do NOT scale the value into the colormap), to avoid
+// collapsing everything below vmin when tau is small.
+const intensityMod = (useSnapshotColors && snapshotLegendMinMax) ? (0.35 + 0.65 * tau) : 1.0;
+const valForColor = (useSnapshotColors && snapshotLegendMinMax) ? valBase : valAdj;
+
+const color = scalarToColor(valForColor, vmin, vmax);
+
+          // Apply to all meshes under this panel instance.
+          p.traverse(child => {
+            if (child && child.isMesh && child.material) {
+              if (!child.userData._hasUniqueMat) {
+                child.material = child.material.clone();
+                child.userData._hasUniqueMat = true;
+              }
+              if (child.material.color) child.material.color.set(0x000000);
+              if (child.material.emissive) {
+                child.material.emissive.copy(color);
+                child.material.emissiveIntensity = intensityMod;
+              }
+              child.material.metalness = 0.0;
+              child.material.roughness = 1.0;
+              child.material.needsUpdate = true;
+            }
+          });
+        }
+      }
+
+      let wavesGroup, roofGroup;
+      let shadowProjectionGroup;
+      let projectedShadowMaterial;
+      let contourGroup;
+      let currentPanelDims = { w: 1.0, h: 1.6 };
+      const ENABLE_TOOLTIPS = false; // disable all hover tooltips (panel/ground snapshots)
+      let snapshotData = null;
+      let snapshotSunLock = null;
+      let useSnapshotColors = false;
+      let snapshotLegendMinMax = null; // {min,max}
+      let currentLegendMode = 'annual'; // 'annual'|'snapshot'|'realtime'
+
+      // Rendering mode: 'textures' for realistic materials, 'heatmap' for the existing emissive snapshot/realtime coloring.
+      let currentRenderMode = 'textures';
+
+      // Keep original (heatmap) materials so we can restore them after switching modes.
+      let _heatmapGroundMaterial = null;
+
+      // Realistic texture assets (procedural canvas textures to keep the app self-contained)
+      let _texPV = null;
+      let _texGround = null;
+      let _texWater = null;
+      let _texWaterNormal = null;
+
+      // Materials for textured mode
+      let _matPVTop = null;
+      let _matPVBottom = null;
+      let _matPVFrame = null;
+      let _matGroundTextured = null;
+      let _matWaterTextured = null;
+
+      // Async init guards / caches for external PBR + HDR IBL assets
+      let _pbrInitPromise = null;
+      let _envInitPromise = null;
+      let _envMapTex = null;
+      let _pmremGen = null;
+
+      function _makeCanvasTexture(w, h, painterFn) {
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const ctx = c.getContext('2d');
+        painterFn(ctx, w, h);
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.anisotropy = 8;
+        tex.needsUpdate = true;
+        return tex;
+      }
+
+      function _makePVTexture() {
+        // Simple "PV cell" look: blue gradient + grid lines + subtle noise.
+        return _makeCanvasTexture(512, 512, (ctx, w, h) => {
+          const g = ctx.createLinearGradient(0, 0, 0, h);
+          g.addColorStop(0, '#143a6b');
+          g.addColorStop(0.5, '#0d2f5f');
+          g.addColorStop(1, '#081f3f');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, w, h);
+
+          // cells
+          const cols = 12, rows = 12;
+          const cw = w / cols, ch = h / rows;
+
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = 'rgba(30, 80, 140, 0.85)';
+          for (let i = 0; i <= cols; i++) {
+            const x = Math.round(i * cw) + 0.5;
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+          }
+          for (let j = 0; j <= rows; j++) {
+            const y = Math.round(j * ch) + 0.5;
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+          }
+
+          // busbars
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = 'rgba(200, 220, 255, 0.25)';
+          for (let i = 0; i < 3; i++) {
+            const x = (i + 1) * w / 4;
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+          }
+
+          // subtle noise
+          const img = ctx.getImageData(0, 0, w, h);
+          const d = img.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const n = (Math.random() - 0.5) * 14;
+            d[i] = Math.max(0, Math.min(255, d[i] + n));
+            d[i+1] = Math.max(0, Math.min(255, d[i+1] + n));
+            d[i+2] = Math.max(0, Math.min(255, d[i+2] + n));
+          }
+          ctx.putImageData(img, 0, 0);
+        });
+      }
+
+      function _makeGroundTexture() {
+        // Low-frequency green/brown noise to read like grass/soil at distance.
+        return _makeCanvasTexture(512, 512, (ctx, w, h) => {
+          ctx.fillStyle = '#5f7f59';
+          ctx.fillRect(0, 0, w, h);
+
+          const img = ctx.getImageData(0, 0, w, h);
+          const d = img.data;
+
+          // multi-scale noise
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              const i = (y * w + x) * 4;
+              const n1 = (Math.random() - 0.5) * 40;
+              const n2 = (Math.random() - 0.5) * 18;
+              const g = 95 + n1;
+              const r = 80 + n2;
+              const b = 70 + n2;
+              d[i] = Math.max(0, Math.min(255, r));
+              d[i+1] = Math.max(0, Math.min(255, g));
+              d[i+2] = Math.max(0, Math.min(255, b));
+              d[i+3] = 255;
+            }
+          }
+          ctx.putImageData(img, 0, 0);
+
+          // faint "mow" lines
+          ctx.globalAlpha = 0.10;
+          ctx.fillStyle = '#ffffff';
+          for (let y = 0; y < h; y += 24) {
+            ctx.fillRect(0, y, w, 8);
+          }
+          ctx.globalAlpha = 1.0;
+        });
+      }
+
+      function _makeWaterTextures() {
+        // Pond/canal feel: greenish base with darker swirls and a matching normal map.
+        const colorTex = _makeCanvasTexture(512, 512, (ctx, w, h) => {
+          const g = ctx.createLinearGradient(0, 0, w, h);
+          g.addColorStop(0, '#2e6f68');
+          g.addColorStop(0.5, '#2a7b66');
+          g.addColorStop(1, '#1f5e57');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, w, h);
+
+          // swirls
+          ctx.globalAlpha = 0.25;
+          for (let k = 0; k < 1400; k++) {
+            const x = Math.random() * w;
+            const y = Math.random() * h;
+            const r = 10 + Math.random() * 60;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fillStyle = Math.random() < 0.5 ? 'rgba(10,30,25,0.35)' : 'rgba(120,180,155,0.25)';
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1.0;
+
+          // subtle highlight streaks
+          ctx.globalAlpha = 0.12;
+          ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+          ctx.lineWidth = 2;
+          for (let i = 0; i < 60; i++) {
+            const y = Math.random() * h;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.bezierCurveTo(w*0.25, y + (Math.random()-0.5)*30, w*0.75, y + (Math.random()-0.5)*30, w, y);
+            ctx.stroke();
+          }
+          ctx.globalAlpha = 1.0;
+        });
+
+        // Normal map: generate a height field then convert to normals.
+        const normalTex = _makeCanvasTexture(512, 512, (ctx, w, h) => {
+          const img = ctx.createImageData(w, h);
+          const d = img.data;
+
+          // height field
+          const height = new Float32Array(w * h);
+          for (let i = 0; i < height.length; i++) height[i] = 0;
+
+          // add ripples
+          const ripples = 90;
+          for (let r = 0; r < ripples; r++) {
+            const cx = Math.random() * w;
+            const cy = Math.random() * h;
+            const amp = 0.6 + Math.random() * 0.8;
+            const freq = 0.03 + Math.random() * 0.08;
+            for (let y = 0; y < h; y++) {
+              for (let x = 0; x < w; x++) {
+                const dx = x - cx, dy = y - cy;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                height[y*w + x] += amp * Math.sin(dist * freq) * Math.exp(-dist * 0.01);
+              }
+            }
+          }
+
+          // normalize + compute normals
+          const scale = 3.0;
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              const i = y*w + x;
+              const hl = height[y*w + Math.max(0, x-1)];
+              const hr = height[y*w + Math.min(w-1, x+1)];
+              const hu = height[Math.max(0, y-1)*w + x];
+              const hd = height[Math.min(h-1, y+1)*w + x];
+              const dx = (hr - hl) * scale;
+              const dy = (hd - hu) * scale;
+              // normal = normalize([-dx, -dy, 1])
+              let nx = -dx, ny = -dy, nz = 1.0;
+              const inv = 1.0 / Math.sqrt(nx*nx + ny*ny + nz*nz);
+              nx *= inv; ny *= inv; nz *= inv;
+
+              const o = i * 4;
+              d[o]   = Math.round((nx * 0.5 + 0.5) * 255);
+              d[o+1] = Math.round((ny * 0.5 + 0.5) * 255);
+              d[o+2] = Math.round((nz * 0.5 + 0.5) * 255);
+              d[o+3] = 255;
+            }
+          }
+          ctx.putImageData(img, 0, 0);
+        });
+
+        return { colorTex, normalTex };
+      }
+
+      function initRealisticMaterialsIfNeeded() {
+        // Loads external PBR texture sets once and builds materials.
+        // This keeps rendering self-consistent and allows IBL (HDR) lighting to do most of the work.
+        if (_matPVTop && _matGroundTextured && _matWaterTextured) return Promise.resolve();
+
+        if (_pbrInitPromise) return _pbrInitPromise;
+
+        const TL = new THREE.TextureLoader();
+
+        function loadTex(url, opts) {
+          opts = opts || {};
+          return new Promise((resolve, reject) => {
+            TL.load(
+              url,
+              (tex) => {
+                tex.wrapS = THREE.RepeatWrapping;
+                tex.wrapT = THREE.RepeatWrapping;
+                if (opts.srgb && ('encoding' in tex)) tex.encoding = THREE.sRGBEncoding;
+                // (r140) three uses .encoding; newer versions use .colorSpace
+                resolve(tex);
+              },
+              undefined,
+              (err) => reject(err || new Error('Failed to load texture: ' + url))
+            );
+          });
+        }
+
+        async function loadTexOptional(url, opts) {
+          try {
+            return await loadTex(url, opts);
+          } catch (err) {
+            console.warn('[PBR] Optional texture missing:', url, err);
+            return null;
+          }
+        
+
+        // Try multiple URLs, return the first successfully loaded texture.
+        async function loadTexFirst(urls, opts = {}) {
+          let lastErr = null;
+          for (const url of urls) {
+            try {
+              return await loadTex(url, opts);
+            } catch (err) {
+              lastErr = err;
+            }
+          }
+          throw lastErr || new Error('No URLs provided to loadTexFirst');
+        }
+
+        // Try multiple optional URLs, return the first successfully loaded texture, or null.
+        async function loadTexOptionalFirst(urls, opts = {}) {
+          for (const url of urls) {
+            const tex = await loadTexOptional(url, opts);
+            if (tex) return tex;
+          }
+          return null;
+        }
+}
+
+
+        // Asset paths (placeholders) – see folder list in README section below.
+        const ASSETS = {
+          pv: {
+            albedo: 'assets/pbr/pv/pv_albedo.jpg',
+            normal: 'assets/pbr/pv/pv_normal.jpg',
+            roughness: 'assets/pbr/pv/pv_roughness.jpg'
+          },
+          ground: {
+            albedo: 'assets/pbr/ground/ground_albedo.jpg',
+            normal: 'assets/pbr/ground/ground_normal.jpg',
+            roughness: 'assets/pbr/ground/ground_roughness.jpg'
+          },
+          water: {
+            albedo: 'assets/pbr/water/water_albedo.jpg',
+            normal: 'assets/pbr/water/water_normal.jpg',
+            roughness: 'assets/pbr/water/water_roughness.jpg' // optional; if missing we fall back to constant roughness
+          }
+        };
+
+        
+        // --- helper: try multiple optional URLs (local fallback; avoids scope issues) ---
+        const loadTexOptionalFirst = async (urls, opts = {}) => {
+          for (const url of urls) {
+            if (!url) continue;
+            const tex = await loadTexOptional(url, opts);
+            if (tex) return tex;
+          }
+          return null;
+        };
+_pbrInitPromise = (async () => {
+          // Ensure procedural PV texture exists as fallback even if PBR textures are missing
+          if (!_texPV) {
+            _texPV = _makePVTexture();
+            _texPV.wrapS = _texPV.wrapT = THREE.ClampToEdgeWrapping;
+            _texPV.center.set(0.5, 0.5);
+            _texPV.rotation = Math.PI / 2;
+            _texPV.repeat.set(1, 1);
+            _texPV.needsUpdate = true;
+          }
+
+          // PV
+          const pvA = await loadTexOptionalFirst([
+            ASSETS.pv.albedo,
+            'assets/textures/pv/pv_albedo.jpg',
+            'assets/textures/pv/pv_albedo.png'
+          ], { srgb: true });
+          const pvN = await loadTexOptionalFirst([
+            ASSETS.pv.normal,
+            'assets/textures/pv/pv_normal.jpg',
+            'assets/textures/pv/pv_normal.png'
+          ]);
+          const pvR = await loadTexOptionalFirst([
+            ASSETS.pv.roughness,
+            'assets/textures/pv/pv_roughness.jpg',
+            'assets/textures/pv/pv_roughness.png'
+          ]);
+          // PV texture transform: rotate 90° and stretch (no tiling)
+          if (pvA) {
+            pvA.wrapS = pvA.wrapT = THREE.ClampToEdgeWrapping;
+            pvA.center.set(0.5, 0.5);
+            pvA.rotation = 0;
+            pvA.repeat.set(1, 1);
+          }
+          if (pvN) {
+            pvN.wrapS = pvN.wrapT = THREE.ClampToEdgeWrapping;
+            pvN.center.set(0.5, 0.5);
+            pvN.rotation = 0;
+            pvN.repeat.set(1, 1);
+          }
+          if (pvR) {
+            pvR.wrapS = pvR.wrapT = THREE.ClampToEdgeWrapping;
+            pvR.center.set(0.5, 0.5);
+            pvR.rotation = 0;
+            pvR.repeat.set(1, 1);
+          }
+// Ground
+          const gA = await loadTex(ASSETS.ground.albedo, { srgb: true });
+          const gN = await loadTexOptional(ASSETS.ground.normal);
+          const gR = await loadTexOptional(ASSETS.ground.roughness);
+          gA.repeat.set(10, 10);
+          if (gN) gN.repeat.set(10, 10);
+          if (gR) gR.repeat.set(10, 10);
+// Water (albedo optional; normal optional; roughness optional)
+          const wA = await loadTexOptionalFirst([
+            ASSETS.water.albedo,
+            'assets/textures/water/water_albedo.jpg',
+            'assets/textures/water/water_albedo.png'
+          ], { srgb: true });
+          if (wA) wA.repeat.set(6, 6);
+          const wN = await loadTexOptionalFirst([
+            ASSETS.water.normal,
+            'assets/textures/water/water_normal.jpg',
+            'assets/textures/water/water_normal.png'
+          ]);
+          if (wN) { wN.wrapS = wN.wrapT = THREE.RepeatWrapping; wN.repeat.set(0.5, 0.5); }
+          let wR = null;
+          try {
+            wR = await loadTex(ASSETS.water.roughness);
+            wR.repeat.set(6, 6);
+          } catch (e) {
+            wR = null;
+          }
+
+          _matPVTop = new THREE.MeshPhysicalMaterial({
+            // PV "glass" feel: strong specular reflections under HDR IBL
+            map: (pvA || _texPV || null),
+            normalMap: pvN,
+            roughnessMap: pvR,
+
+            // Tune these for stronger reflections:
+            roughness: 0.25,
+            metalness: 0.5,
+            ior: 1.5,
+            reflectivity: 0.75,
+            specularIntensity: 1.2,
+
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.04,
+
+            envMapIntensity: 3.5
+          });
+
+          _matPVBottom = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            roughness: 0.85,
+            metalness: 0.0
+          });
+
+          _matPVFrame = new THREE.MeshStandardMaterial({
+            color: 0x111111,
+            roughness: 0.6,
+            metalness: 0.1
+          });
+
+          _matGroundTextured = new THREE.MeshStandardMaterial({
+            map: gA,
+            roughnessMap: gR,
+            roughness: 1.0,
+            metalness: 0.0
+          });
+          if (gN) {
+            _matGroundTextured.normalMap = gN;
+            _matGroundTextured.normalScale = new THREE.Vector2(0.6, 0.6);
+            _matGroundTextured.needsUpdate = true;
+          }
+
+// Use MeshPhysicalMaterial for water for better specular/clearcoat with HDR IBL.
+          _matWaterTextured = new THREE.MeshPhysicalMaterial({
+            // Water appearance tuning:
+            // - color: base tint under the albedo map (if present); adjust for "more green" / "more blue"
+            color: 0x020611, // green-blue canal/pond tint
+            roughness: 0.02,
+            metalness: 0.3,
+            reflectivity: 1.0,
+            ior: 1.33,
+            specularIntensity: 1.35,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.01,
+            envMapIntensity: 6.8,
+            transparent: true,
+            opacity: 0.98
+          });
+
+          if (wA) {
+            _matWaterTextured.map = wA;
+            _matWaterTextured.needsUpdate = true;
+          }
+          if (wN) {
+            _matWaterTextured.normalMap = wN;
+            _matWaterTextured.normalScale = new THREE.Vector2(2.0, 2.0);
+            _matWaterTextured.needsUpdate = true;
+          }
+
+if (wR) {
+            _matWaterTextured.roughnessMap = wR;
+            _matWaterTextured.needsUpdate = true;
+          }
+
+          return true;
+        })().catch((err) => {
+          console.warn('[PBR] Failed to init PBR materials; falling back to procedural textures.', err);
+          // If PBR fails, fall back to the procedural generator pipeline already in the file.
+          _pbrInitPromise = null;
+          _texPV = _makePVTexture();
+          // PV texture transform: rotate 90° and force 1×1 mapping (no tiling)
+          _texPV.wrapS = _texPV.wrapT = THREE.ClampToEdgeWrapping;
+          _texPV.center.set(0.5, 0.5);
+          _texPV.rotation = Math.PI / 2;
+          _texPV.repeat.set(1, 1);
+          _texPV.needsUpdate = true;
+
+          _texGround = _makeGroundTexture();
+          _texGround.repeat.set(6, 6);
+
+          const wt = _makeWaterTextures();
+          _texWater = wt.colorTex;
+          _texWater.repeat.set(4, 4);
+          _texWaterNormal = wt.normalTex;
+          _texWaterNormal.repeat.set(0.75, 0.75);
+
+          _matPVTop = new THREE.MeshStandardMaterial({ map: _texPV, roughness: 0.65, metalness: 0.25 });
+          _matPVBottom = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, metalness: 0.0 });
+          _matPVFrame = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.78, metalness: 0.05 });
+
+          _matGroundTextured = new THREE.MeshStandardMaterial({ map: _texGround, roughness: 0.95, metalness: 0.0 });
+          _matWaterTextured = new THREE.MeshStandardMaterial({
+            map: _texWater,
+            normalMap: _texWaterNormal,
+            roughness: 0.25,
+            metalness: 0.0,
+            transparent: true,
+            opacity: 0.98
+          });
+          return true;
+        });
+
+        return _pbrInitPromise;
+      }
+
+      async function enableTextureLightingIfNeeded() {
+        // HDR IBL for PBR mode. Background remains unchanged; only scene.environment is set.
+        if (!renderer || !scene) return;
+        if (scene.environment && _envMapTex) return;
+
+        if (_envInitPromise) return _envInitPromise;
+
+        const HDR_URL = 'assets/hdr/studio_small_09_1k.hdr'; // placeholder
+        _envInitPromise = new Promise((resolve, reject) => {
+          try {
+            if (!_pmremGen) _pmremGen = new THREE.PMREMGenerator(renderer);
+            _pmremGen.compileEquirectangularShader();
+
+            const loader = new THREE.RGBELoader();
+            loader.load(
+              HDR_URL,
+              (hdrTex) => {
+                const pmrem = _pmremGen.fromEquirectangular(hdrTex);
+                hdrTex.dispose();
+                _envMapTex = pmrem.texture;
+                scene.environment = _envMapTex;
+                resolve(true);
+              },
+              undefined,
+              (err) => {
+                console.warn('[HDR] Failed to load HDR environment map:', err);
+                // Soft-fail: keep environment null so the app still runs.
+                _envMapTex = null;
+                scene.environment = null;
+                resolve(false);
+              }
+            );
+          } catch (e) {
+            console.warn('[HDR] Exception while initializing HDR IBL:', e);
+            _envMapTex = null;
+            scene.environment = null;
+            resolve(false);
+          }
+        });
+
+        return _envInitPromise;
+      }
+
+      function disableTextureLighting() {
+        if (!scene) return;
+        // Preserve background color; only remove IBL environment.
+        scene.environment = null;
+      }
+
+      function applyRenderModeToGround() {
+        if (!groundMesh) return;
+        const surf = (surfaceTypeEl && surfaceTypeEl.value) ? String(surfaceTypeEl.value).toLowerCase() : 'ground';
+
+        if (!_heatmapGroundMaterial) _heatmapGroundMaterial = groundMesh.material;
+
+        if (currentRenderMode === 'textures') {
+          // Ensure PBR/procedural texture materials are ready before assignment (prevents race where panels/water stay white/fallback).
+          initRealisticMaterialsIfNeeded().then(() => {
+            const mat = (surf === 'water') ? _matWaterTextured : _matGroundTextured;
+            if (mat) {
+              groundMesh.material = mat;
+              groundMesh.material.needsUpdate = true;
+            }
+            // Ensure any overlay shadows are hidden (heatmap-only visualization)
+            if (waterShadowMesh) waterShadowMesh.visible = false;
+            if (shadowOverlayMesh) shadowOverlayMesh.visible = false;
+          }).catch(() => {
+            // If init fails, we keep whatever material is currently assigned.
+          });
+          return;
+        }
+
+        // Heatmap mode: restore original material + base colors.
+        if (_heatmapGroundMaterial) {
+          groundMesh.material = _heatmapGroundMaterial;
+          const isWater = surf === 'water';
+          if (groundMesh.material && groundMesh.material.color) {
+            groundMesh.material.color.setHex(isWater ? 0x3aa3ff : 0xc3f4f6);
+          }
+          groundMesh.material.map = null;
+          groundMesh.material.needsUpdate = true;
+        }
+      }
+
+      function applyRenderModeToPanels() {
+        if (!panelMeshes || !panelMeshes.length) return;
+
+        if (currentRenderMode === 'textures') {
+          // Ensure PBR/procedural texture materials are ready before assignment (prevents race where panels stay white).
+          initRealisticMaterialsIfNeeded().then(() => {
+            panelMeshes.forEach(p => {
+              if (!p || !p.isMesh) return;
+              // BoxGeometry material order: [right, left, top, bottom, front, back] == [+X, -X, +Y, -Y, +Z, -Z]
+              const mats = [_matPVFrame, _matPVFrame, _matPVTop, _matPVBottom, _matPVFrame, _matPVFrame];
+              if (mats.every(m => !!m)) {
+                p.material = mats;
+                if (Array.isArray(p.material)) p.material.forEach(mm => { if (mm) mm.needsUpdate = true; });
+              }
+              // Remove emissive overrides that heatmap mode uses
+              if (p.material && Array.isArray(p.material)) {
+                p.material.forEach(m => {
+                  if (!m) return;
+                  if (m.emissive) m.emissive.set(0x000000);
+                  if (m.emissiveIntensity != null) m.emissiveIntensity = 0.0;
+                });
+              }
+            });
+          }).catch(() => {
+            // If init fails, we keep existing materials.
+          });
+          return;
+        }
+
+        // Heatmap mode: restore per-panel unique MeshStandardMaterial so emissive coloring works.
+        panelMeshes.forEach(p => {
+          if (!p || !p.isMesh) return;
+          if (Array.isArray(p.material)) {
+            // Restore a single material instance
+            const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0.05 });
+            m.side = THREE.DoubleSide;
+            p.material = m;
+            p.userData.__uniqueMaterial = true;
+          }
+        });
+      }
+
+      function applyRenderModeToScene() {
+        if (currentRenderMode === 'textures') {
+          // Ensure HDR IBL + PBR materials are ready, then apply.
+          Promise.all([
+            enableTextureLightingIfNeeded(),
+            initRealisticMaterialsIfNeeded()
+          ]).then(() => {
+            applyRenderModeToGround();
+            applyRenderModeToPanels();
+          });
+        } else {
+          // Heatmap mode: remove IBL so heatmap readability remains stable/predictable.
+          disableTextureLighting();
+          applyRenderModeToGround();
+          applyRenderModeToPanels();
+        }
+      }
+
+      function setRenderMode(mode) {
+        const m = (mode === 'heatmap') ? 'heatmap' : 'textures';
+        if (currentRenderMode === m) return;
+        currentRenderMode = m;
+
+        // If switching into textures, ensure any snapshot-derived emissive state doesn't persist.
+        if (currentRenderMode === 'textures') {
+          resetSnapshotState();
+        }
+
+        applyRenderModeToScene();
+
+        // In heatmap mode we need a fresh simulation tick to repopulate colors quickly.
+        // In texture mode, the numeric simulation continues as-is; only rendering changes.
+        if (currentRenderMode === 'heatmap') {
+          scheduleSimulation();
+        }
+      }
+
+      let pointer = new THREE.Vector2();
+      let raycaster = new THREE.Raycaster();
+      let pointerClientPos = { x: 0, y: 0 };
+      let tooltipEl = null;
+      function ensureTooltip() {
+        // Tooltips are disabled by design for production embeds (Squarespace) and to avoid UI obstruction.
+        if (!ENABLE_TOOLTIPS) {
+          const existing = document.getElementById("snapshotTooltip");
+          if (existing) existing.remove();
+          tooltipEl = null;
+          return;
+        }
+        if (!tooltipEl) {
+          tooltipEl = document.createElement("div");
+          tooltipEl.id = "snapshotTooltip";
+          document.body.appendChild(tooltipEl);
+        }
+      }
+      let orientationSnapshotMap = new Map();
+      let snapshotColorRange = { min: 0, max: 0 };
+
+      function degToRad(d) { return (d * Math.PI) / 180.0; }
+      // State
+      let panelsMeta = [];
+      let currentLocation = null;
+      let currentProvider = null;
+      let pendingLocationResults = [];
+      let geocodeInFlight = false;
+      let lastGeocodeQuery = "";
+      let geocodeRequestId = 0;
+      let simTimeout = null;
+      let isSimRunning = false;
+      let lastSimMeanPOA = null;
+
+      ensureTooltip();
+
+      function clampAzimuth(deg) {
+        let d = Number.isFinite(deg) ? deg : 180;
+        while (d < 0) d += 360;
+        while (d >= 360) d -= 360;
+        return d;
+      }
+
+      function orientationKeyFromAzTilt(azDeg, tiltDeg) {
+        const az = ((Number(azDeg) % 360) + 360) % 360;
+        const azRounded = Math.round(az * 10) / 10;
+        const tiltRounded = Math.round(Number(tiltDeg) * 10) / 10;
+        return azRounded.toFixed(1) + "|" + tiltRounded.toFixed(1);
+      }
+
+      function lastFullYear() {
+        return new Date().getFullYear() - 1;
+      }
+
+      function daysInMonthUTC(year, month1to12) {
+        // month1to12: 1..12
+        return new Date(Date.UTC(year, month1to12, 0)).getUTCDate();
+      }
+
+      function isoUtcNoZ(year, month1to12, day, hour) {
+        const mm = String(month1to12).padStart(2, "0");
+        const dd = String(day).padStart(2, "0");
+        const hh = String(hour).padStart(2, "0");
+        return `${year}-${mm}-${dd}T${hh}:00`;
+      }
+
+      // Optional: small yield to keep UI responsive during sampling
+      function nextFrame() {
+        return new Promise(resolve => requestAnimationFrame(() => resolve()));
+      }
+
+      function handlePointerMove(ev) {
+        if (!renderer || !renderer.domElement) return;
+        const rect = renderer.domElement.getBoundingClientRect();
+        pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+        pointerClientPos.x = ev.clientX;
+        pointerClientPos.y = ev.clientY;
+      }
+
+      function handlePointerLeave() {
+        pointer.set(0, 0);
+        pointerClientPos.x = 0;
+        pointerClientPos.y = 0;
+        hideTooltip();
+      }
+
+      function hideTooltip() {
+        if (tooltipEl) {
+          tooltipEl.style.opacity = 0;
+        }
+      }
+
+function getCurrentTotalPanels() {
+  const type = arrayTypeEl.value === "roof" ? "roof" : "waves";
+  if (type === "waves") {
+    const panelsPerRow = parseInt(wavesPanelsPerRowEl.value || "5", 10);
+    const rowsFixed = 18; // fixed in UI copy
+    return Math.max(0, panelsPerRow) * rowsFixed;
+  } else {
+    const cols = parseInt(roofColsEl.value || "20", 10);
+    const rows = parseInt(roofRowsEl.value || "4", 10);
+    return Math.max(0, cols) * Math.max(0, rows);
+  }
+}
+
+function resetSnapshotState() {
+  snapshotData = null;
+  snapshotSunLock = null;
+  useSnapshotColors = false;
+  orientationSnapshotMap.clear();
+  snapshotColorRange = { min: 0, max: 0 };
+  if (contourGroup) {
+    while (contourGroup.children.length) {
+      const obj = contourGroup.children.pop();
+      if (obj.geometry) obj.geometry.dispose();
+      contourGroup.remove(obj);
+    }
+  }
+  hideTooltip();
+}
+
+function scheduleSimulation() {
+  resetSnapshotState();
+  if (!currentLocation) return;
+  if (simTimeout) window.clearTimeout(simTimeout);
+  simTimeout = window.setTimeout(runSimulationAndUpdateUI, 350);
+  scheduleFinalShadingRecompute();
+}
+
+
+
+function scheduleFinalShadingRecompute() {
+  if (_finalShadingTimer) clearTimeout(_finalShadingTimer);
+
+  _finalShadingTimer = setTimeout(async () => {
+    if (!currentLocation) return;
+
+    const surface = (surfaceTypeEl && surfaceTypeEl.value)
+      ? String(surfaceTypeEl.value).toLowerCase()
+      : "ground";
+    if (surface !== "water") return;
+
+    const token = ++_shadingJobToken;
+
+    try {
+      if (typeof setShadowSamplingResolution === "function") {
+        setShadowSamplingResolution(shadowResFinal);
+      }
+
+      const year = lastFullYear();
+      const samples = await buildShadingSamplesGPU({
+        year,
+        lat: currentLocation.lat,
+        lon: currentLocation.lon,
+        mode: "final"
+      });
+
+      if (token !== _shadingJobToken) return;
+
+      // store for optional inspection
+      window._lastFinalShadingSamples = samples;
+
+      if (window.DEBUG_SHADING) {
+        console.log("[final shading]", {
+          samples: samples.length,
+          tau_under_array: lastBeamTransmittanceUnderArray,
+          tau_full: lastBeamTransmittanceFull
+        });
+      }
+    } catch (e) {
+      if (window.DEBUG_SHADING) console.warn("Final shading recompute failed:", e);
+    } finally {
+      if (typeof setShadowSamplingResolution === "function") {
+        setShadowSamplingResolution(shadowResInteractive);
+      }
+    }
+  }, 400);
+}
+
+
+      function formatAnnual(kwh) {
+        if (!Number.isFinite(kwh)) return "–";
+        if (kwh < 1000) return kwh.toFixed(0) + " kWh/year";
+        return (kwh / 1000).toFixed(2) + " MWh/year";
+      }
+
+      function formatPOA(val) {
+        if (!Number.isFinite(val)) return "–";
+        return val.toFixed(1) + " W/m²";
+      }
+
+      // 0 -> blue, 0.33 -> teal, 0.66 -> yellow, 1 -> orange
+      function scalarToColor(s, min, max) {
+        const t = max > min ? (s - min) / (max - min) : 0;
+        const clamped = Math.max(0, Math.min(1, t));
+        let r, g, b;
+        if (clamped < 0.33) {
+          const k = clamped / 0.33;
+          r = 0x2b + (0x24 * k);
+          g = 0x7b + (0x44 * k);
+          b = 0xff;
+        } else if (clamped < 0.66) {
+          const k = (clamped - 0.33) / 0.33;
+          r = 0x4f + (0xa3 * k);
+          g = 0xbf + (0x06 * k);
+          b = 0x8a - (0x46 * k);
+        } else {
+          const k = (clamped - 0.66) / 0.34;
+          r = 0xf2 + (0x0d * k);
+          g = 0xc7 - (0x5d * k);
+          b = 0x44 - (0x10 * k);
+        }
+        return new THREE.Color(r / 255, g / 255, b / 255);
+      }
+
+      function ensureUniqueMaterial(mesh) {
+        if (!mesh || !mesh.material) return;
+        if (mesh.userData && mesh.userData.__uniqueMaterial) return;
+        // If the same material instance is shared across many meshes,
+        // per-mesh color/emissive edits will appear uniform. Clone once.
+        if (Array.isArray(mesh.material)) {
+          mesh.material = mesh.material.map(m => (m && m.clone ? m.clone() : m));
+        } else if (mesh.material.clone) {
+          mesh.material = mesh.material.clone();
+        }
+        mesh.userData = mesh.userData || {};
+        mesh.userData.__uniqueMaterial = true;
+      }
+
+      function computeRobustMinMax(values, fallbackMin=0, fallbackMax=1000) {
+        const finite = values.filter(v => Number.isFinite(v));
+        if (!finite.length) return { min: fallbackMin, max: fallbackMax };
+        const sorted = finite.slice().sort((a,b)=>a-b);
+        const q = (p) => {
+          const idx = (sorted.length - 1) * p;
+          const lo = Math.floor(idx);
+          const hi = Math.ceil(idx);
+          if (lo === hi) return sorted[lo];
+          const t = idx - lo;
+          return sorted[lo] * (1 - t) + sorted[hi] * t;
+        };
+        let min = q(0.05);
+        let max = q(0.95);
+        if (!(max > min)) { min = Math.min(...sorted); max = Math.max(...sorted); }
+        if (!(max > min)) { const c = Number.isFinite(min) ? min : fallbackMin; const eps = Math.max(1, 0.02 * Math.abs(c)); min = c - eps; max = c + eps; }
+        return { min, max };
+      }
+
+      function updateLegendUI({ min, max, meanText, noteText }) {
+        if (legendMinEl) legendMinEl.textContent = `${Number(min).toFixed(0)}`;
+        if (legendMaxEl) legendMaxEl.textContent = `${Number(max).toFixed(0)}`;
+        if (legendMeanEl && meanText != null) legendMeanEl.textContent = meanText;
+        if (legendNoteEl && noteText != null) legendNoteEl.textContent = noteText;
+        updateLegendBar(min, max);
+      }
+
+      function updateLegendBar(min, max) {
+        const bar = document.getElementById("legend-bar");
+        if (!bar) return;
+        const steps = 10;
+        const cols = [];
+        for (let i = 0; i < steps; i++) {
+          const t = i / (steps - 1);
+          const v = min + t * (max - min);
+          const c = scalarToColor(v, min, max);
+          const r = Math.round(c.r * 255);
+          const g = Math.round(c.g * 255);
+          const b = Math.round(c.b * 255);
+          cols.push(`rgb(${r},${g},${b}) ${(t*100).toFixed(1)}%`);
+        }
+        bar.style.background = `linear-gradient(90deg, ${cols.join(",")})`;
+      }
+
+
+      function initThree() {
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xd2d6df);
+
+        const aspect = canvasContainer.clientWidth / canvasContainer.clientHeight || 1.7;
+        camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 500);
+        camera.position.set(34, 26, 32);
+        camera.lookAt(0, 0, 0);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.physicallyCorrectLights = true;
+        // Professional rendering defaults (engineering review-friendly)
+        if ('outputColorSpace' in renderer && THREE.SRGBColorSpace) {
+          renderer.outputColorSpace = THREE.SRGBColorSpace;
+        } else if ('outputEncoding' in renderer && THREE.sRGBEncoding) {
+          renderer.outputEncoding = THREE.sRGBEncoding;
+        }
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+
+        renderer.setPixelRatio(window.devicePixelRatio || 1);
+        renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+        canvasContainer.appendChild(renderer.domElement);
+        renderer.domElement.addEventListener("pointermove", handlePointerMove);
+        renderer.domElement.addEventListener("pointerleave", handlePointerLeave);
+
+        const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.35);
+        hemi.position.set(0, 40, 0);
+        scene.add(hemi);
+
+        // Sun light (directional) with shadow map enabled
+        sunLight = new THREE.DirectionalLight(0xffffff, 1.6);
+        sunLight.position.set(20, 40, -10);
+        sunLight.castShadow = true;
+
+        // Shadow map quality (tune later)
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
+        sunLight.shadow.bias = -0.0002;
+        sunLight.shadow.normalBias = 0.02;
+
+        // Orthographic shadow camera bounds (updated dynamically later)
+        const d = 40;
+        sunLight.shadow.camera.left = -d;
+        sunLight.shadow.camera.right = d;
+        sunLight.shadow.camera.top = d;
+        sunLight.shadow.camera.bottom = -d;
+        sunLight.shadow.camera.near = 0.5;
+        sunLight.shadow.camera.far = 200;
+
+        scene.add(sunLight);
+        scene.add(sunLight.target);
+
+        // Enable renderer shadows
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const groundGeom = new THREE.PlaneGeometry(groundSize, groundSize);
+        const groundMat = new THREE.MeshLambertMaterial({ color: 0xc3f4f6, side: THREE.DoubleSide });
+        groundMesh = new THREE.Mesh(groundGeom, groundMat);
+        // ground geometry is pre-rotated into XZ; keep mesh rotation at yaw only.
+        scene.add(groundMesh);
+
+        groundMesh.receiveShadow = true;
+        groundMesh.castShadow = false;
+
+        // Water shadow overlay: single-color shadow using alphaMap (avoids banding/stripes)
+        waterShadowMesh = new THREE.Mesh(groundGeom.clone(), new THREE.MeshBasicMaterial({
+          color: 0x000000,
+          transparent: true,
+          opacity: 0.28,
+          depthWrite: false
+        }));
+        waterShadowMesh.visible = false;
+        waterShadowMesh.renderOrder = 4;
+        scene.add(waterShadowMesh);
+
+        directionGroup = new THREE.Group();
+        directionGroup.visible = !!SHOW_DIRECTION_MARKERS;
+        scene.add(directionGroup);
+
+        initNorthArrow();
+
+        arrayGroup = new THREE.Group();
+        scene.add(arrayGroup);
+
+        
+        wavesGroup = new THREE.Group();
+        roofGroup = new THREE.Group();
+        arrayGroup.add(wavesGroup);
+        arrayGroup.add(roofGroup);
+        wavesGroup.visible = true;
+        roofGroup.visible = false;
+        shadowProjectionGroup = new THREE.Group();
+        shadowProjectionGroup.renderOrder = 5;
+        scene.add(shadowProjectionGroup);
+        contourGroup = new THREE.Group();
+        contourGroup.visible = !!SHOW_SNAPSHOT_CONTOURS;
+        contourGroup.renderOrder = 6;
+        scene.add(contourGroup);
+        projectedShadowMaterial = new THREE.MeshBasicMaterial({
+          color: 0x000000,
+          opacity: 0.28,
+          transparent: true,
+          depthWrite: false
+        });
+controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.rotateSpeed = 0.7;
+        controls.panSpeed = 0.5;
+        controls.target.set(0, 0, 0);
+        initShadowSampling();
+window.addEventListener("resize", handleResize);
+        animate();
+      }
+
+      // ============================================================
+      // GPU shadow/transmittance sampling (beam shading proxy)
+      // ============================================================
+
+      function initShadowSampling() {
+        // Render target where we draw the surface shadow mask
+        shadowRT = new THREE.WebGLRenderTarget(shadowResInteractive, shadowResInteractive, {
+          depthBuffer: true,
+          stencilBuffer: false
+        });
+        shadowReadBuf = new Uint8Array(shadowResInteractive * shadowResInteractive * 4);
+
+        shadowCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 50);
+        shadowCam.position.set(0, 10, 0);
+        shadowCam.lookAt(0, 0, 0);
+
+        // ShadowMaterial draws darkness in shadow; opacity=1 gives a clean mask
+        shadowMat = new THREE.ShadowMaterial({ opacity: 1.0 });
+      }
+
+      function syncShadowPlaneToGround() {
+        if (!groundMesh || !shadowCam) return;
+
+        // Fit ortho camera to the plane extents (in plane local space)
+        shadowCam.left = -groundDims.sx / 2;
+        shadowCam.right = groundDims.sx / 2;
+        shadowCam.top = groundDims.sz / 2;
+        shadowCam.bottom = -groundDims.sz / 2;
+        shadowCam.near = 0.01;
+        shadowCam.far = 50;
+        shadowCam.updateProjectionMatrix();
+
+        // Place camera above plane. We also rotate the camera "up" vector to match the ground's yaw,
+        // so the resulting renderTarget aligns with the ground UVs (prevents 'sticky' / rotated shadow textures).
+        const groundPos = groundMesh.position;
+        shadowCam.position.set(groundPos.x, groundPos.y + 10, groundPos.z);
+
+        // Align camera's screen-space axes to ground local axes via the up-vector.
+        // (For a top-down ortho camera, this controls the renderTarget rotation.)
+        const upVec = new THREE.Vector3(0, 0, 1).applyQuaternion(groundMesh.quaternion).normalize();
+        shadowCam.up.copy(upVec);
+        shadowCam.lookAt(groundPos.x, groundPos.y, groundPos.z);
+        shadowCam.updateMatrixWorld(true);
+
+        // Keep overlay in sync
+        if (shadowOverlayMesh) {
+          shadowOverlayMesh.position.copy(groundMesh.position);
+          shadowOverlayMesh.rotation.copy(groundMesh.rotation);
+          shadowOverlayMesh.scale.set(groundDims.sx, 1, groundDims.sz);
+          shadowOverlayMesh.position.y = groundMesh.position.y + 0.01;
+        }
+      }
+
+
+function ensureShadowOverlay() {
+  if (!groundMesh || !shadowRT) return;
+  if (shadowOverlayMesh) return;
+
+  const geom = new THREE.PlaneGeometry(1, 1);
+  geom.rotateX(-Math.PI / 2);
+
+  const mat = new THREE.MeshBasicMaterial({
+    map: shadowRT.texture,
+    transparent: true,
+    opacity: 0.7,
+    color: 0xffffff,
+    blending: THREE.MultiplyBlending,
+    depthWrite: false
+  });
+
+  shadowOverlayMesh = new THREE.Mesh(geom, mat);
+  shadowOverlayMesh.renderOrder = 10;
+  shadowOverlayMesh.visible = false;
+  shadowOverlayMesh.rotation.copy(groundMesh.rotation);
+  shadowOverlayMesh.position.copy(groundMesh.position);
+  shadowOverlayMesh.position.y += 0.01; // avoid z-fighting
+  shadowOverlayMesh.scale.set(groundDims.sx, 1, groundDims.sz);
+  scene.add(shadowOverlayMesh);
+}
+
+      function setSunDirectionFromAzEl(azDeg, elDeg) {
+        if (!sunLight) return;
+
+        // Hemisphere correction: if solar azimuth is computed in a convention
+        // that is effectively mirrored in the southern hemisphere, flip by 180°.
+        // This ensures Sydney (lat < 0) shows sun coming from the north at solar noon.
+        if (currentLocation && Number.isFinite(Number(currentLocation.lat)) && Number(currentLocation.lat) < 0) {
+          azDeg = (Number(azDeg) + 180) % 360;
+        }
+
+        lastSunAzDeg = azDeg;
+        lastSunElDeg = elDeg;
+
+        const az = degToRad(azDeg);
+        const el = degToRad(elDeg);
+
+        // World convention in this app: North = -Z, East = +X
+        const dir = new THREE.Vector3(
+          Math.sin(az) * Math.cos(el),  // x
+          Math.sin(el),                 // y
+          -Math.cos(az) * Math.cos(el)  // z
+        ).normalize();
+
+        const center = groundMesh ? groundMesh.position.clone() : new THREE.Vector3(0, 0, 0);
+
+        // DirectionalLight shines from its position toward its target.
+        sunLight.target.position.copy(center);
+
+        const lightDistance = 120; // keep fairly far to reduce perspective artifacts in shadows
+        sunLight.position.copy(center.clone().add(dir.clone().multiplyScalar(lightDistance)));
+
+        // Keep shadow camera bounds in sync with the current scene footprint
+        syncSunShadowCameraToGround();
+
+        sunLight.updateMatrixWorld(true);
+        sunLight.target.updateMatrixWorld(true);
+
+        updateProjectedShadow();
+      }
+
+      function syncSunShadowCameraToGround() {
+        if (!sunLight || !sunLight.shadow || !sunLight.shadow.camera) return;
+        if (!groundMesh) return;
+
+        // Expand bounds slightly to ensure the full ground footprint stays inside the shadow frustum.
+        const pad = 8.0;
+        const halfW = Math.max(10, groundDims.sx * 0.5 + pad);
+        const halfH = Math.max(10, groundDims.sz * 0.5 + pad);
+
+        const cam = sunLight.shadow.camera;
+        cam.left = -halfW;
+        cam.right = halfW;
+        cam.top = halfH;
+        cam.bottom = -halfH;
+
+        // Near/far should cover from light to receivers/occluders
+        cam.near = 0.5;
+        cam.far = 400;
+
+        cam.updateProjectionMatrix();
+      }
+
+      function updateRealtimeSunAndHeatmap() {
+        if (!currentLocation) return;
+
+        // Snapshot mode keeps its own locked sun direction and uses snapshot-derived colors.
+        if (snapshotSunLock) {
+          setSunDirectionFromAzEl(snapshotSunLock.az, snapshotSunLock.el);
+          return;
+        }
+
+        // Use *actual current time* in UTC for "real-time" sun direction.
+        const t = new Date();
+        const sp = solarPositionApproxUTC(t, Number(currentLocation.lat), Number(currentLocation.lon));
+
+        // If sun is below the horizon, keep a low grazing angle (prevents shadow-map glitches)
+        const el = Number.isFinite(sp.el_deg) ? sp.el_deg : 5;
+        const az = Number.isFinite(sp.az_deg) ? sp.az_deg : 180;
+
+        setSunDirectionFromAzEl(az, Math.max(-2, el));
+
+        // Realtime shading: use GPU shadow mask (tau) to modulate POA per panel.
+        // Prevent overlapping async ticks (avoids mixed overlays from interleaved updates).
+        if (_realtimeUpdateBusy) return;
+        _realtimeUpdateBusy = true;
+        const myToken = ++_realtimeUpdateToken;
+
+        try {
+          computeBeamTransmittanceGPU();
+          if (myToken !== _realtimeUpdateToken) return; // invalidated by a newer tick/rebuild
+          applyPerPanelShadowGradient();
+        } catch (err) {
+          applyPanelHeatmapFromSun();
+        } finally {
+          if (myToken === _realtimeUpdateToken) _realtimeUpdateBusy = false;
+        }
+      }
+
+
+      function applyPanelHeatmapFromSun() {
+        if (currentRenderMode === 'textures') return;
+        if (useSnapshotColors) return;
+        if (!sunLight || panelMeshes.length === 0) return;
+
+        // Sun direction (light travel direction is from sunLight.position -> target).
+        const sunDir = new THREE.Vector3().subVectors(sunLight.target.position, sunLight.position).normalize();
+        const sunRay = sunDir.clone().negate(); // direction from surface toward the sun
+
+        // Ensure realtime meteo cache is available once per frame (not per panel)
+        ensureRealtimeMeteo();
+        const tNow = new Date();
+        const irrNow = getIrradianceAtUTC(tNow);
+
+        const q = new THREE.Quaternion();
+        const nLocal = new THREE.Vector3(0, 1, 0);
+        const nWorld = new THREE.Vector3();
+
+for (const m of panelMeshes) {
+          if (!m || !m.material || !m.material.color) continue;
+          m.getWorldQuaternion(q);
+          nWorld.copy(nLocal).applyQuaternion(q).normalize();
+
+          // Real-time POA (W/m²): prefer hourly irradiance from Open-Meteo (DNI/DHI/GHI),
+          // fallback to a stable proxy if meteo isn't available yet.
+          const irr = irrNow;
+          let poa = computePOA_Wm2_fromIrradiance(nWorld, sunRay, irr, surfaceEl ? surfaceEl.value : "");
+          if (!(poa > 0) && poa !== 0) {
+            // Fallback proxy: avoids everything looking "minimum" if meteo fetch hasn't completed.
+            const cosInc = Math.max(0, nWorld.dot(sunRay));
+            const diffuseProxy = 200;        // W/m² baseline
+            const beamProxy = 800 * cosInc;  // W/m² scaled by incidence
+            poa = diffuseProxy + beamProxy;
+          }
+
+          const col = scalarToColor(poa, minI, maxI);
+          // Make the heatmap readable even if normals are inverted: drive colour via emissive.
+          m.material.color.set(0x000000);
+          if (m.material.emissive) {
+            m.material.emissive.copy(col);
+            m.material.emissiveIntensity = 1.0;
+          }
+          m.material.metalness = 0.0;
+          m.material.roughness = 1.0;
+        }
+      }
+
+      function updateProjectedShadow() {
+        if (!shadowProjectionGroup) return;
+
+        while (shadowProjectionGroup.children.length) {
+          const obj = shadowProjectionGroup.children.pop();
+          if (obj.geometry) obj.geometry.dispose();
+          shadowProjectionGroup.remove(obj);
+        }
+
+        if (!sunLight || !groundMesh || panelMeshes.length === 0) return;
+
+        const sunDir = new THREE.Vector3().subVectors(sunLight.target.position, sunLight.position).normalize();
+        const rayDir = sunDir.clone().negate();
+        if (rayDir.y >= -0.05) {
+          return; // sun below horizon, skip
+        }
+
+        const groundY = groundMesh.position.y;
+        const cornersLocal = [
+          new THREE.Vector3(-currentPanelDims.w / 2, 0, -currentPanelDims.h / 2),
+          new THREE.Vector3(currentPanelDims.w / 2, 0, -currentPanelDims.h / 2),
+          new THREE.Vector3(currentPanelDims.w / 2, 0, currentPanelDims.h / 2),
+          new THREE.Vector3(-currentPanelDims.w / 2, 0, currentPanelDims.h / 2)
+        ];
+
+        const projected = new Array(4);
+        const tmp = new THREE.Vector3();
+        const offsets = cornersLocal.map(v => v.clone());
+
+        for (const panel of panelMeshes) {
+          if (!panel.matrixWorld) continue;
+          let valid = true;
+          for (let i = 0; i < offsets.length; i++) {
+            const corner = offsets[i].clone().applyMatrix4(panel.matrixWorld);
+            const t = (groundY - corner.y) / rayDir.y;
+            if (!Number.isFinite(t) || t < 0) {
+              valid = false;
+              break;
+            }
+            projected[i] = corner.clone().add(tmp.copy(rayDir).multiplyScalar(t));
+          }
+          if (!valid) continue;
+
+          const positions = new Float32Array([
+            projected[0].x, projected[0].y, projected[0].z,
+            projected[1].x, projected[1].y, projected[1].z,
+            projected[2].x, projected[2].y, projected[2].z,
+            projected[2].x, projected[2].y, projected[2].z,
+            projected[3].x, projected[3].y, projected[3].z,
+            projected[0].x, projected[0].y, projected[0].z
+          ]);
+
+          const geom = new THREE.BufferGeometry();
+          geom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+          geom.computeVertexNormals();
+          const mesh = new THREE.Mesh(geom, projectedShadowMaterial);
+          mesh.position.y = groundY + 0.001;
+          shadowProjectionGroup.add(mesh);
+        }
+      }
+
+      function applySnapshotData(data) {
+        snapshotData = data;
+        orientationSnapshotMap.clear();
+        (data.orientations || []).forEach(o => {
+          orientationSnapshotMap.set(o.orientation_key, o);
+        });
+        snapshotSunLock = {
+          az: Number(data.snapshot_sun_az_deg),
+          el: Number(data.snapshot_sun_el_deg)
+        };
+        useSnapshotColors = true;
+        if (
+          Number.isFinite(snapshotSunLock.az) &&
+          Number.isFinite(snapshotSunLock.el)
+        ) {
+          setSunDirectionFromAzEl(snapshotSunLock.az, snapshotSunLock.el);
+        }
+        applySnapshotPanelColors();
+        rebuildSnapshotContours();
+        updateProjectedShadow();
+        try {
+          computeBeamTransmittanceGPU();
+          applyPerPanelShadowGradient();
+        } catch (err) {
+          // ignore shading errors in snapshot mode
+        }
+      }
+
+      function applySnapshotPanelColors() {
+        if (currentRenderMode === 'textures') return;
+        if (!snapshotData || !panelMeshes.length || orientationSnapshotMap.size === 0) return;
+        const values = Array.from(orientationSnapshotMap.values())
+          .map(o => Number(o.daily_mean_poa_w_m2))
+          .filter(v => Number.isFinite(v));
+        if (!values.length) return;
+        let min = Math.min(...values);
+        let max = Math.max(...values);
+        if (!Number.isFinite(min)) min = 0;
+        if (!Number.isFinite(max) || max === min) max = min + 1;
+        snapshotColorRange = { min, max };
+
+        panelMeshes.forEach(mesh => {
+          ensurePanelOrientationKey(mesh);
+          const key = mesh.userData && mesh.userData.orientationKey;
+          const entry = key ? orientationSnapshotMap.get(key) : null;
+
+          ensureUniqueMaterial(mesh);
+
+          const raw = entry ? Number(entry.daily_mean_poa_w_m2) : NaN;
+          const hasVal = Number.isFinite(raw);
+          const val = hasVal ? raw : NaN;
+
+          if (!hasVal) {
+            // Fallback: neutral colour when snapshot entry is missing (prevents stale/default bands after rebuild).
+            mesh.material.color.set(0x000000);
+            if (mesh.material.emissive) {
+              mesh.material.emissive.set(0x666666);
+              mesh.material.emissiveIntensity = 0.7;
+            }
+            mesh.material.metalness = 0.0;
+            mesh.material.roughness = 1.0;
+            mesh.material.needsUpdate = true;
+            mesh.userData.snapshotValue = null;
+            return;
+          }
+
+          mesh.userData.snapshot_base_poa_w_m2 = val;
+          const col = scalarToColor(val, min, max);
+          mesh.material.color.set(0x000000);
+          if (mesh.material.emissive) {
+            mesh.material.emissive.copy(col);
+            mesh.material.emissiveIntensity = 1.0;
+          }
+          // Reduce reliance on mesh normals for readability (inverted normals would otherwise appear "dark")
+          mesh.material.metalness = 0.0;
+          mesh.material.roughness = 1.0;
+          mesh.material.needsUpdate = true;
+          mesh.userData.snapshotValue = val;
+        });
+        snapshotLegendMinMax = { min, max };
+        currentLegendMode = 'snapshot';
+        updateLegendUI({
+          min,
+          max,
+          meanText: `Snapshot day: ${snapshotData.snapshot_day}`,
+          noteText: 'Higher colour = higher snapshot POA (W/m²)'
+        });
+      }
+
+      function rebuildSnapshotContours() {
+        if (!SHOW_SNAPSHOT_CONTOURS) {
+          // Ensure nothing is shown if disabled
+          if (contourGroup) {
+            while (contourGroup.children.length) {
+              const obj = contourGroup.children.pop();
+              if (obj && obj.geometry) obj.geometry.dispose?.();
+              contourGroup.remove(obj);
+            }
+          }
+          return;
+        }
+        if (!contourGroup) return;
+        while (contourGroup.children.length) {
+          const obj = contourGroup.children.pop();
+          if (obj.geometry) obj.geometry.dispose();
+          contourGroup.remove(obj);
+        }
+        if (!snapshotData || orientationSnapshotMap.size === 0) return;
+        const min = snapshotColorRange.min;
+        const max = snapshotColorRange.max || min + 1;
+        orientationSnapshotMap.forEach((entry, key) => {
+          const panels = panelMeshes.filter(m => m.userData.orientationKey === key);
+          if (!panels.length) return;
+          const box = new THREE.Box3();
+          panels.forEach(p => box.expandByObject(p));
+          if (!isFinite(box.min.x) || !isFinite(box.max.x)) return;
+          const height = box.min.y + 0.02;
+          const points = [
+            new THREE.Vector3(box.min.x, height, box.min.z),
+            new THREE.Vector3(box.max.x, height, box.min.z),
+            new THREE.Vector3(box.max.x, height, box.max.z),
+            new THREE.Vector3(box.min.x, height, box.max.z)
+          ];
+          const geom = new THREE.BufferGeometry().setFromPoints(points.concat(points[0]));
+          const col = scalarToColor(entry.daily_mean_poa_w_m2 || min, min, max);
+          const line = new THREE.Line(geom, new THREE.LineBasicMaterial({ color: col.getHex(), linewidth: 1 }));
+          contourGroup.add(line);
+
+          const center = box.getCenter(new THREE.Vector3());
+          const label = createTextSprite(`${(entry.daily_mean_poa_w_m2 || 0).toFixed(0)} W/m²`);
+          label.position.copy(center);
+          label.position.y = height + 0.3;
+          contourGroup.add(label);
+        });
+      }
+
+
+      function findParentPanelMesh(obj) {
+        let cur = obj;
+        while (cur) {
+          if (cur.userData && cur.userData.isPanel) return cur;
+          if (cur.userData && cur.userData.parentPanel) return cur.userData.parentPanel;
+          cur = cur.parent;
+        }
+        return null;
+      }
+
+      function updateHoverTooltip() {
+        if (!tooltipEl || !snapshotData || !useSnapshotColors) {
+          hideTooltip();
+          return;
+        }
+        const targets = [];
+        panelMeshes.forEach(m => targets.push(m));
+        if (groundMesh) targets.push(groundMesh);
+        if (!targets.length) {
+          hideTooltip();
+          return;
+        }
+        raycaster.setFromCamera(pointer, camera);
+        const hits = raycaster.intersectObjects(targets, true);
+        if (!hits.length) {
+          hideTooltip();
+          return;
+        }
+        for (const hit of hits) {
+          const panel = findParentPanelMesh(hit.object);
+          if (panel) {
+            showPanelTooltip(panel);
+            return;
+          }
+          if (hit.object === groundMesh) {
+            showGroundTooltip();
+            return;
+          }
+        }
+        hideTooltip();
+      }
+
+      function showPanelTooltip(panel) {
+        const key = panel.userData.orientationKey;
+        const entry = orientationSnapshotMap.get(key);
+        if (!entry) {
+          hideTooltip();
+          return;
+        }
+        tooltipEl.innerHTML =
+          `<div><strong>Panel snapshot</strong></div>` +
+          `<div>Orientation: ${entry.azimuth_deg.toFixed(1)}° / Tilt ${entry.tilt_deg.toFixed(1)}°</div>` +
+          `<div>Daily mean POA: ${entry.daily_mean_poa_w_m2.toFixed(1)} W/m²</div>` +
+          `<div>Snapshot day: ${snapshotData.snapshot_day}</div>`;
+        tooltipEl.style.left = pointerClientPos.x + 12 + "px";
+        tooltipEl.style.top = pointerClientPos.y + 12 + "px";
+        tooltipEl.style.opacity = 1;
+      }
+
+      function showGroundTooltip() {
+        tooltipEl.innerHTML =
+          `<div><strong>Ground snapshot</strong></div>` +
+          `<div>Day: ${snapshotData ? snapshotData.snapshot_day : "n/a"}</div>` +
+          `<div>Sun: ${snapshotSunLock ? snapshotSunLock.az.toFixed(1) : "–"}° az, ` +
+          `${snapshotSunLock ? snapshotSunLock.el.toFixed(1) : "–"}° el</div>` +
+          `<div>Beam transmittance: ${(lastBeamTransmittance * 100).toFixed(1)}%</div>`;
+        tooltipEl.style.left = pointerClientPos.x + 12 + "px";
+        tooltipEl.style.top = pointerClientPos.y + 12 + "px";
+        tooltipEl.style.opacity = 1;
+      }
+
+function computeArrayFootprintLocalXZ() {
+  // Returns {minX, maxX, minZ, maxZ} in ground plane local coords, or null.
+  if (!groundMesh) return null;
+
+  const target =
+    (wavesGroup && wavesGroup.visible) ? wavesGroup :
+    (roofGroup && roofGroup.visible) ? roofGroup :
+    null;
+
+  if (!target) return null;
+
+  const box = new THREE.Box3().setFromObject(target);
+  if (!isFinite(box.min.x) || !isFinite(box.max.x)) return null;
+
+  const corners = [
+    new THREE.Vector3(box.min.x, box.min.y, box.min.z),
+    new THREE.Vector3(box.min.x, box.min.y, box.max.z),
+    new THREE.Vector3(box.min.x, box.max.y, box.min.z),
+    new THREE.Vector3(box.min.x, box.max.y, box.max.z),
+    new THREE.Vector3(box.max.x, box.min.y, box.min.z),
+    new THREE.Vector3(box.max.x, box.min.y, box.max.z),
+    new THREE.Vector3(box.max.x, box.max.y, box.min.z),
+    new THREE.Vector3(box.max.x, box.max.y, box.max.z),
+  ];
+
+  const inv = new THREE.Matrix4().copy(groundMesh.matrixWorld).invert();
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+
+  for (const c of corners) {
+    c.applyMatrix4(inv);
+    minX = Math.min(minX, c.x);
+    maxX = Math.max(maxX, c.x);
+    minZ = Math.min(minZ, c.z);
+    maxZ = Math.max(maxZ, c.z);
+  }
+
+  if (!isFinite(minX) || !isFinite(maxX) || !isFinite(minZ) || !isFinite(maxZ)) return null;
+  return { minX, maxX, minZ, maxZ };
+}
+
+      function computeBeamTransmittanceGPU() {
+        if (!renderer || !shadowRT || !shadowCam || !shadowMat || !groundMesh) return 1.0;
+
+        syncShadowPlaneToGround();
+
+        const prevRT = renderer.getRenderTarget();
+        const prevOverride = scene.overrideMaterial;
+        const prevShadowAutoUpdate = renderer.shadowMap.autoUpdate;
+        const prevGroundMaterial = groundMesh.material;
+        const prevOverlayVisible = shadowOverlayMesh ? shadowOverlayMesh.visible : null;
+        if (shadowOverlayMesh) shadowOverlayMesh.visible = false;
+
+        renderer.shadowMap.autoUpdate = false;
+        scene.overrideMaterial = null;
+        groundMesh.material = shadowMat;
+
+        renderer.setRenderTarget(shadowRT);
+        renderer.clear();
+        renderer.render(scene, shadowCam);
+        renderer.setRenderTarget(prevRT);
+
+        groundMesh.material = prevGroundMaterial;
+        scene.overrideMaterial = prevOverride;
+        renderer.shadowMap.autoUpdate = prevShadowAutoUpdate;
+        renderer.shadowMap.needsUpdate = true;
+        if (shadowOverlayMesh) shadowOverlayMesh.visible = false;
+
+        // Read back pixels (RGBA 0..255)
+        renderer.readRenderTargetPixels(
+          shadowRT,
+          0, 0,
+          shadowRT.width, shadowRT.height,
+          shadowReadBuf
+        );
+
+        
+// Persist the full-resolution shadow mask for downstream per-panel + ground/water shading.
+        // (Uint8Array RGBA, values 0..255, where brighter => more lit)
+        lastShadowMaskPixels = shadowReadBuf;
+        lastShadowMaskW = shadowRT.width;
+        lastShadowMaskH = shadowRT.height;
+
+        // Tag ownership (Water only) to prevent stale masks from other array types / geometry.
+        try {
+          const surf = (surfaceTypeEl && surfaceTypeEl.value) ? String(surfaceTypeEl.value).toLowerCase() : "";
+          if (surf === "water") {
+            const at = (arrayTypeEl && arrayTypeEl.value === "roof") ? "roof" : "waves";
+            const key = computeWaterCacheKey();
+            lastShadowMaskOwnerKey = key;
+            lastShadowMaskOwnerType = at;
+            if (waterMaskStateByType && waterMaskStateByType[at]) {
+              waterMaskStateByType[at].key = key;
+              waterMaskStateByType[at].pixels = lastShadowMaskPixels;
+              waterMaskStateByType[at].w = lastShadowMaskW;
+              waterMaskStateByType[at].h = lastShadowMaskH;
+            }
+          } else {
+            lastShadowMaskOwnerKey = null;
+            lastShadowMaskOwnerType = null;
+          }
+        } catch (e) {}
+
+        // Update water surface texture (ground mode keeps it disabled)
+        updateGroundShadowTextureFromMask(lastShadowMaskPixels, lastShadowMaskW, lastShadowMaskH);
+
+// ShadowMaterial yields darker pixels in shadow; compute mean lit fraction in [0..1]
+const w = shadowRT.width;
+const h = shadowRT.height;
+
+function meanInRect(x0, y0, x1, y1) {
+  const ix0 = Math.max(0, Math.min(w - 1, Math.floor(x0)));
+  const iy0 = Math.max(0, Math.min(h - 1, Math.floor(y0)));
+  const ix1 = Math.max(0, Math.min(w, Math.ceil(x1)));
+  const iy1 = Math.max(0, Math.min(h, Math.ceil(y1)));
+
+  let sum = 0;
+  let cnt = 0;
+  for (let y = iy0; y < iy1; y++) {
+    for (let x = ix0; x < ix1; x++) {
+      const i = (y * w + x) * 4;
+      const r = shadowReadBuf[i + 0];
+      const g = shadowReadBuf[i + 1];
+      const b = shadowReadBuf[i + 2];
+      sum += (r + g + b) / 3;
+      cnt++;
+    }
+  }
+  return cnt ? (sum / (cnt * 255)) : 1.0;
+}
+
+// Mean over full plane
+lastBeamTransmittanceFull = Math.max(0, Math.min(1, meanInRect(0, 0, w, h)));
+
+// Mean under array footprint (prevents dilution by large margins)
+const fp = computeArrayFootprintLocalXZ();
+if (fp) {
+  const sx = groundDims.sx;
+  const sz = groundDims.sz;
+
+  const u0 = (fp.minX / sx + 0.5) * w;
+  const u1 = (fp.maxX / sx + 0.5) * w;
+  const v0 = (fp.minZ / sz + 0.5) * h;
+  const v1 = (fp.maxZ / sz + 0.5) * h;
+
+  lastBeamTransmittanceUnderArray = Math.max(
+    0,
+    Math.min(1, meanInRect(Math.min(u0, u1), Math.min(v0, v1), Math.max(u0, u1), Math.max(v0, v1)))
+  );
+} else {
+  lastBeamTransmittanceUnderArray = lastBeamTransmittanceFull;
+}
+
+// Use under-array as the primary metric
+lastBeamTransmittance = lastBeamTransmittanceUnderArray;
+
+// Optional: show shadow overlay on water or when debugging
+const surface = (surfaceTypeEl && surfaceTypeEl.value)
+  ? String(surfaceTypeEl.value).toLowerCase()
+  : "ground";
+
+ensureShadowOverlay();
+        // Do not force overlay visibility from within compute; keep it UI-controlled.
+        // (Avoids "sticky plane" artifacts when switching surface / azimuth.)
+        if (shadowOverlayMesh) {
+          const showOverlay = false; // set true only for explicit debug
+          shadowOverlayMesh.visible = showOverlay;
+          if (shadowOverlayMesh.material) shadowOverlayMesh.material.opacity = surface === "water" ? 0.7 : 0.5;
+        }
+
+return lastBeamTransmittance;
+      }
+
+      // Expose for debugging in console
+      window.computeBeamTransmittanceGPU = computeBeamTransmittanceGPU;
+
+      window._shadingMetrics = () => ({ tau_under_array: lastBeamTransmittanceUnderArray, tau_full: lastBeamTransmittanceFull, tau: lastBeamTransmittance });
+
+
+// Build representative shading samples (12 months × 3 hours) using GPU shadow mask.
+// Returns [{time_utc, tau, weight_hours}, ...] suitable for /simulate_shaded.
+async function buildShadingSamplesGPU({ year, lat, lon, mode = "interactive" }) {
+  const hours = [9, 12, 15];
+  const day = 15;
+
+  // Optionally adjust sampling RT resolution if helper exists
+  if (typeof setShadowSamplingResolution === "function") {
+    setShadowSamplingResolution(mode === "final" ? shadowResFinal : shadowResInteractive);
+  }
+
+  const samples = [];
+
+  // Preserve current sun direction to restore after sampling
+  const savedAz = lastSunAzDeg;
+  const savedEl = lastSunElDeg;
+
+  for (let m = 1; m <= 12; m++) {
+    const dim = daysInMonthUTC(year, m);
+    const weightHoursPerSample = dim * 1.0; // each sample represents that hour across all days in the month
+
+    for (const hr of hours) {
+      const time_utc = isoUtcNoZ(year, m, day, hr);
+      const t = new Date(Date.UTC(year, m - 1, day, hr, 0, 0));
+
+      // Use the app's existing NOAA-style solar position helper
+      const sp = solarPositionApproxUTC(t, Number(lat), Number(lon));
+      const elRad = (Math.PI / 2) - sp.zenRad;
+      if (!Number.isFinite(elRad) || elRad <= 0.01) continue; // skip night
+
+      const azDeg = sp.azRad * 180 / Math.PI;
+      const elDeg = elRad * 180 / Math.PI;
+
+      setSunDirectionFromAzEl(azDeg, elDeg);
+
+      // Let one frame render so shadows update
+      await nextFrame();
+
+      const tau = computeBeamTransmittanceGPU();
+
+      samples.push({
+        time_utc,
+        az_deg: azDeg,
+        el_deg: elDeg,
+        tau: Math.max(0, Math.min(1, Number(tau))),
+        weight_hours: weightHoursPerSample
+      });
+
+      if (window.DEBUG_SHADING) {
+        console.log("[shading sample]", { time_utc, azDeg, elDeg, tau, weight_hours: weightHoursPerSample });
+      }
+    }
+  }
+
+  // Restore sun direction
+  if (Number.isFinite(savedAz) && Number.isFinite(savedEl)) {
+    setSunDirectionFromAzEl(savedAz, savedEl);
+    // Ensure the cached shadow mask corresponds to the restored sun direction.
+    // This avoids using the last sampled month/hour mask for snapshot panel shading on water.
+    await nextFrame();
+    computeBeamTransmittanceGPU();
+  }
+
+  return samples;
+}
+
+      // Expose for debugging in console
+      window.buildShadingSamplesGPU = buildShadingSamplesGPU;
+
+      // ============================================================
+      // Step 5: Diffuse shading via Sky View Factor (SVF)
+      // ============================================================
+      // SVF estimates the fraction of visible sky from the water plane under the array.
+      // We compute it once per stable configuration using deterministic hemisphere directions
+      // (Hammersley sequence, base-2 VDC). This makes it reproducible for audit packs.
+      const _svfCache = new Map(); // key -> { svf, n, scheme }
+      const SVF_SCHEME = "hammersley_vdc2_uniform_hemisphere";
+
+      function _radicalInverseVdC(i) {
+        // base-2 Van der Corput
+        let x = i >>> 0;
+        let inv = 0;
+        let denom = 1;
+        while (x) {
+          denom *= 2;
+          inv = inv * 2 + (x & 1);
+          x >>>= 1;
+        }
+        return denom > 1 ? inv / denom : 0;
+      }
+
+      function _hammersley2D(i, n) {
+        return [ (i + 0.5) / n, _radicalInverseVdC(i) ];
+      }
+
+      function _dirFromHemisphereUV(u, v) {
+        // Uniform over hemisphere solid angle:
+        // phi in [0,2pi), cos(theta) in [0,1]
+        const phi = 2 * Math.PI * u;
+        const cosT = 1.0 - v; // v uniform => cosT uniform
+        const sinT = Math.sqrt(Math.max(0, 1 - cosT * cosT));
+        return new THREE.Vector3(
+          Math.cos(phi) * sinT,
+          cosT,
+          Math.sin(phi) * sinT
+        );
+      }
+
+      function _collectOccluders() {
+        const occluders = [];
+        if (arrayGroup) {
+          arrayGroup.traverse(obj => {
+            if (obj && obj.isMesh) occluders.push(obj);
+          });
+        }
+        return occluders;
+      }
+
+      function _svfCacheKey(nRays) {
+        const type = arrayTypeEl.value === "roof" ? "roof" : "waves";
+        const az = clampAzimuth(parseInt(azimuthEl.value || "180", 10));
+        const elev = parseFloat(elevationEl.value || "0.6");
+        const tilt = type === "waves" ? 12.5 : parseFloat(roofTiltEl.value || "15");
+        const totalPanels = getCurrentTotalPanels();
+        // For roof arrays include rows/cols; for waves include panels per row.
+        const extra = (type === "roof")
+          ? ("r" + (roofRowsEl.value || "") + "_c" + (roofColsEl.value || ""))
+          : ("ppr" + (wavesPanelsPerRowEl.value || ""));
+        return [type, az.toFixed(2), tilt.toFixed(2), elev.toFixed(2), totalPanels, extra, nRays, SVF_SCHEME].join("|");
+      }
+
+      function computeSVFCPU(nRays = 64) {
+        if (!scene) return 1.0;
+
+        const key = _svfCacheKey(nRays);
+        const cached = _svfCache.get(key);
+        if (cached && Number.isFinite(cached.svf)) return cached.svf;
+
+        const occluders = _collectOccluders();
+        if (!occluders.length) {
+          _svfCache.set(key, { svf: 1.0, n: nRays, scheme: SVF_SCHEME });
+          return 1.0;
+        }
+
+        // Ray origin: center of array footprint projected to water plane (y ~= 0).
+        const box = new THREE.Box3().setFromObject(arrayGroup);
+        const c = box.getCenter(new THREE.Vector3());
+        const origin = new THREE.Vector3(c.x, 0.05, c.z);
+
+        // Small offset to avoid self-intersections / ground
+        const raycaster = new THREE.Raycaster();
+        raycaster.far = 1e6;
+        raycaster.near = 0.001;
+
+        let visible = 0;
+
+        for (let i = 0; i < nRays; i++) {
+          const hv = _hammersley2D(i, nRays);
+          const dirLocal = _dirFromHemisphereUV(hv[0], hv[1]).normalize();
+          raycaster.set(origin, dirLocal);
+          const hits = raycaster.intersectObjects(occluders, true);
+          if (!hits || hits.length === 0) visible++;
+        }
+
+        const svf = Math.max(0, Math.min(1, visible / Math.max(1, nRays)));
+        _svfCache.set(key, { svf, n: nRays, scheme: SVF_SCHEME });
+        return svf;
+      }
+
+      // Expose for debugging in console
+      window.computeSVFCPU = computeSVFCPU;
+
+
+      // NOAA-style solar position approximation (UTC), matching backend convention:
+      // returns { zenRad, azRad } where az: 0=N,90=E,180=S,270=W
+      function solarPositionApproxUTC(tUtc, latDeg, lonDeg) {
+        const toRad = (d) => d * Math.PI / 180;
+
+        const yearStart = Date.UTC(tUtc.getUTCFullYear(), 0, 1);
+        const doy = Math.floor((tUtc.getTime() - yearStart) / 86400000) + 1;
+
+        const fracHour = tUtc.getUTCHours() + tUtc.getUTCMinutes() / 60 + tUtc.getUTCSeconds() / 3600;
+
+        const gamma = 2 * Math.PI / 365 * (doy - 1 + (fracHour - 12) / 24);
+
+        const eot = 229.18 * (
+          0.000075 +
+          0.001868 * Math.cos(gamma) -
+          0.032077 * Math.sin(gamma) -
+          0.014615 * Math.cos(2 * gamma) -
+          0.040849 * Math.sin(2 * gamma)
+        );
+
+        const decl =
+          0.006918 -
+          0.399912 * Math.cos(gamma) +
+          0.070257 * Math.sin(gamma) -
+          0.006758 * Math.cos(2 * gamma) +
+          0.000907 * Math.sin(2 * gamma) -
+          0.002697 * Math.cos(3 * gamma) +
+          0.00148 * Math.sin(3 * gamma);
+
+        const minutesUTC = fracHour * 60;
+        const tst = (minutesUTC + eot + 4 * lonDeg) % 1440;
+
+        const haDeg = tst / 4 - 180;
+        const ha = toRad(haDeg);
+
+        const lat = toRad(latDeg);
+
+        let cosZen = Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(ha);
+        cosZen = Math.max(-1, Math.min(1, cosZen));
+        const zen = Math.acos(cosZen);
+
+        const sinAz = -Math.sin(ha) * Math.cos(decl) / Math.max(1e-9, Math.sin(zen));
+        const cosAz = (Math.sin(decl) - Math.sin(lat) * Math.cos(zen)) / (Math.cos(lat) * Math.max(1e-9, Math.sin(zen)));
+        let az = Math.atan2(sinAz, cosAz);
+        if (az < 0) az += 2 * Math.PI;
+
+        return { zenRad: zen, azRad: az };
+      }
+
+      // Compute representative beam transmittance samples (no UI changes).
+      // This runs fast on a small set of timestamps and updates lastBeamTransmittance.
+      function computeRepresentativeTransmittance(mode = "interactive") {
+        if (!groundMesh || !sunLight) return;
+
+        const lat = currentLocation ? parseFloat(currentLocation.lat) : 0;
+        const lon = currentLocation ? parseFloat(currentLocation.lon) : 0;
+
+        // Choose a representative year/day; equinox is stable
+        const year = new Date().getUTCFullYear() - 1;
+        const month = 2; // March (0-indexed)
+        const day = 20;
+
+        const hours = (mode === "final")
+          ? [6, 8, 10, 12, 14, 16, 18]
+          : [10, 12, 14];
+
+        let sum = 0;
+        let count = 0;
+
+        for (const h of hours) {
+          const t = new Date(Date.UTC(year, month, day, h, 0, 0));
+          const sp = solarPositionApproxUTC(t, lat, lon);
+          const elRad = (Math.PI / 2) - sp.zenRad;
+          if (elRad <= 0) continue;
+
+          const azDeg = sp.azRad * 180 / Math.PI;
+          const elDeg = elRad * 180 / Math.PI;
+
+          setSunDirectionFromAzEl(azDeg, elDeg);
+
+          // Render once so shadows are up to date
+          renderer.render(scene, camera);
+
+          sum += computeBeamTransmittanceGPU();
+          count += 1;
+        }
+
+        if (count > 0) {
+          lastBeamTransmittance = sum / count;
+        }
+
+        // For debugging / development visibility only
+        // (no UI changes)
+        // console.log("Beam transmittance (" + mode + "):", lastBeamTransmittance.toFixed(3));
+      }
+
+      
+      function createTextSprite(text) {
+        const canvas = document.createElement("canvas");
+        const size = 256;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, size, size);
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size / 2 - 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#1f2430";
+        ctx.font = "bold 120px system-ui, -apple-system, Segoe UI, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, size / 2, size / 2 + 4);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.needsUpdate = true;
+
+        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+        const spr = new THREE.Sprite(mat);
+        spr.scale.set(1.6, 1.6, 1.0);
+        return spr;
+      }
+
+      function rebuildDirectionMarkers(centerX, centerZ, sizeX, sizeZ) {
+        if (!SHOW_DIRECTION_MARKERS) {
+          // Ensure nothing is shown if disabled
+          if (directionGroup) {
+            while (directionGroup.children.length) directionGroup.remove(directionGroup.children[0]);
+          }
+          return;
+        }
+        if (!directionGroup) return;
+
+        while (directionGroup.children.length) directionGroup.remove(directionGroup.children[0]);
+
+        const y = 0.05; // slightly above ground to avoid z-fighting
+        const pad = 1.0;
+
+        // Convention for the ground indicators:
+        // North = -Z, South = +Z, East = +X, West = -X
+        const north = createTextSprite("N");
+        north.position.set(centerX, y, centerZ - sizeZ / 2 + pad);
+
+        const south = createTextSprite("S");
+        south.position.set(centerX, y, centerZ + sizeZ / 2 - pad);
+
+        const east = createTextSprite("E");
+        east.position.set(centerX + sizeX / 2 - pad, y, centerZ);
+
+        const west = createTextSprite("W");
+        west.position.set(centerX - sizeX / 2 + pad, y, centerZ);
+
+        directionGroup.add(north, south, east, west);
+      }
+
+
+      
+
+function makeTextSprite(message, options) {
+  const opts = options || {};
+  const fontSize = opts.fontSize || 64;
+  const padding = opts.padding || 24;
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  ctx.font = `${fontSize}px Arial`;
+  const metrics = ctx.measureText(message);
+  const textW = Math.ceil(metrics.width);
+  const textH = Math.ceil(fontSize * 1.2);
+
+  canvas.width = textW + padding * 2;
+  canvas.height = textH + padding * 2;
+
+  // redraw with correct canvas size
+  ctx.font = `${fontSize}px Arial`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  // transparent background
+  ctx.fillStyle = "rgba(0,0,0,0)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "rgba(15,17,26,0.9)";
+  ctx.fillText(message, canvas.width / 2, canvas.height / 2);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+  const sprite = new THREE.Sprite(mat);
+
+  const scale = opts.scale || 1.2;
+  sprite.scale.set(scale, scale, 1);
+
+  return sprite;
+}
+
+function initNorthArrow() {
+  if (!scene) return;
+  if (northArrowGroup) {
+    scene.remove(northArrowGroup);
+  }
+
+  northArrowGroup = new THREE.Group();
+
+  // Arrow pointing to world North (North = -Z)
+  const dir = new THREE.Vector3(0, 0, -1).normalize();
+  const origin = new THREE.Vector3(0, 0.02, 0);
+  const length = 3.5;
+
+  const arrow = new THREE.ArrowHelper(dir, origin, length, 0x111111, 0.8, 0.4);
+  northArrowGroup.add(arrow);
+
+  const label = makeTextSprite("N", { scale: 1.4 });
+  label.position.set(0, 0.8, -length - 0.2);
+  northArrowGroup.add(label);
+
+  scene.add(northArrowGroup);
+}
+      
+      // Texture tiling helpers: keeps ground/water from looking stretched when the plane resizes.
+      // Adjust these "meters per tile" values to taste.
+      const _TEX_TILE_METERS = {
+        ground: 6.0, // larger = less repetition
+        water: 2.0   // smaller = more repetition (reduces "stretched" look)
+      };
+
+      function _applySurfaceTilingForPlane(mesh, sx, sz, surfaceType) {
+        if (!mesh || !mesh.material) return;
+        const mat = mesh.material;
+        const type = (surfaceType || '').toLowerCase();
+        const tileM = (type === 'water') ? _TEX_TILE_METERS.water : _TEX_TILE_METERS.ground;
+
+        // PlaneGeometry(sx, sz) rotated -PI/2: U ~ X, V ~ Z.
+        const repU = Math.max(1, sx / tileM);
+        const repV = Math.max(1, sz / tileM);
+
+        const applyToTex = (tex) => {
+          if (!tex) return;
+          tex.wrapS = THREE.RepeatWrapping;
+          tex.wrapT = THREE.RepeatWrapping;
+          tex.repeat.set(repU, repV);
+          tex.needsUpdate = true;
+        };
+
+        applyToTex(mat.map);
+        applyToTex(mat.normalMap);
+        applyToTex(mat.roughnessMap);
+        applyToTex(mat.metalnessMap);
+        applyToTex(mat.aoMap);
+      }
+
+function updateGroundToArray(marginMeters) {
+        if (!groundMesh) return;
+
+        const margin = typeof marginMeters === "number" ? marginMeters : 5;
+        const target = (wavesGroup && wavesGroup.visible) ? wavesGroup : roofGroup;
+        if (!target) return;
+
+        // Robust footprint fit:
+        // 1) compute a world-space AABB of the array
+        // 2) project AABB corners into the array's yaw-aligned frame
+        // 3) size the ground plane in that frame, then position it back in world
+        target.updateMatrixWorld(true);
+
+        const qWorld = new THREE.Quaternion();
+        target.getWorldQuaternion(qWorld);
+        const eWorld = new THREE.Euler().setFromQuaternion(qWorld, "YXZ");
+        const yaw = eWorld.y; // world yaw
+
+        const pivot = new THREE.Vector3();
+        target.getWorldPosition(pivot);
+
+        const box = new THREE.Box3().setFromObject(target);
+        if (!isFinite(box.min.x) || !isFinite(box.max.x)) return;
+
+        const up = new THREE.Vector3(0, 1, 0);
+        const xAxis = new THREE.Vector3(1, 0, 0).applyAxisAngle(up, yaw);
+        const zAxis = new THREE.Vector3(0, 0, 1).applyAxisAngle(up, yaw);
+
+        // 8 corners of the world AABB
+        const min = box.min, max = box.max;
+        const corners = [
+          new THREE.Vector3(min.x, min.y, min.z),
+          new THREE.Vector3(min.x, min.y, max.z),
+          new THREE.Vector3(min.x, max.y, min.z),
+          new THREE.Vector3(min.x, max.y, max.z),
+          new THREE.Vector3(max.x, min.y, min.z),
+          new THREE.Vector3(max.x, min.y, max.z),
+          new THREE.Vector3(max.x, max.y, min.z),
+          new THREE.Vector3(max.x, max.y, max.z),
+        ];
+
+        let minX = Infinity, maxX = -Infinity;
+        let minZ = Infinity, maxZ = -Infinity;
+
+        for (const c of corners) {
+          const v = c.clone().sub(pivot);
+          const x = v.dot(xAxis);
+          const z = v.dot(zAxis);
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (z < minZ) minZ = z;
+          if (z > maxZ) maxZ = z;
+        }
+
+        let sx = Math.max(8, (maxX - minX) + 2 * margin);
+        let sz = Math.max(8, (maxZ - minZ) + 2 * margin);
+
+        // Water: keep surface centered under the array, but allow the lateral width to be adjusted (canal vs lake).
+        // We interpret "width" as the X-extent in the array's yaw-aligned frame (xAxis).
+        if (surfaceTypeEl && surfaceTypeEl.value === "water") {
+          const w = Number.isFinite(waterWidthM) ? waterWidthM : (waterWidthEl ? parseFloat(waterWidthEl.value || "20") : 20.0);
+          // Water width is defined in meters across the "water channel" direction.
+          // For Solar Waves (arrayType="waves"), the channel width aligns with the array X axis (sx).
+          // For Solar Roof (arrayType="roof"), the array is rotated by 90°, so we apply the channel width to sz instead.
+          if (arrayTypeEl && arrayTypeEl.value === "roof") {
+            sz = Math.max(1.0, w);
+          } else {
+            sx = Math.max(1.0, w);
+          }
+        }
+
+        groundDims.sx = sx;
+        groundDims.sz = sz;
+
+        const centerX = 0.5 * (minX + maxX);
+        const centerZ = 0.5 * (minZ + maxZ);
+        const centerWorld = pivot.clone()
+          .add(xAxis.clone().multiplyScalar(centerX))
+          .add(zAxis.clone().multiplyScalar(centerZ));
+
+        groundMesh.geometry.dispose();
+        const newGeom = new THREE.PlaneGeometry(sx, sz);
+        newGeom.rotateX(-Math.PI / 2);
+        groundMesh.geometry = newGeom;
+        _applySurfaceTilingForPlane(groundMesh, sx, sz, (surfaceTypeEl && surfaceTypeEl.value) ? surfaceTypeEl.value : 'ground');
+        groundMesh.position.set(centerWorld.x, 0, centerWorld.z);
+
+        // Keep the surface perfectly horizontal (XZ plane), and spin around +Y only.
+        groundMesh.rotation.set(0, yaw, 0);
+
+        // Sync shadow sampling plane to ground
+        syncShadowPlaneToGround();
+
+        // Place the 3D North arrow just outside the ground plane on world-north (-Z).
+        if (northArrowGroup) {
+          // World-Z extent of a yawed rectangle: |sx*sin(yaw)| + |sz*cos(yaw)|
+          const extentZ = 0.5 * (Math.abs(sx * Math.sin(yaw)) + Math.abs(sz * Math.cos(yaw)));
+          northArrowGroup.position.set(centerWorld.x, 0.02, centerWorld.z - extentZ - 1.0);
+        }
+      }
+
+      function formatLitersPerYear(liters) {
+        if (!Number.isFinite(liters)) return "–";
+        if (liters < 1000) return liters.toFixed(0) + " L/year";
+        if (liters < 1e6) return (liters / 1000).toFixed(1) + " kL/year";
+        return (liters / 1e6).toFixed(3) + " ML/year";
+      }
+
+      function estimateWaterSavingsLitersPerYear() {
+        try {
+          // Fast, intentionally simple estimate based on the report's reduction ratios.
+          // We use mean POA (W/m²) as a proxy for annual radiation.
+          if (!surfaceTypeEl || surfaceTypeEl.value !== "water") return null;
+          if (!currentLocation) return null;
+          
+          // Approx annual irradiation on a horizontal surface (kWh/m²/year)
+          // using mean POA as a proxy. This is coarse but stable and fast.
+          const meanPoa = Number.isFinite(lastSimMeanPOA) ? lastSimMeanPOA : null;
+          if (meanPoa == null) return null;
+          const annualKwhPerM2 = (meanPoa * 8760.0) / 1000.0;
+          
+          // Convert to MJ/m²/year (1 kWh = 3.6 MJ)
+          const R = annualKwhPerM2 * 3.6;
+          
+          // Radiation-based evaporation model (report section 3.2)
+          const K = 0.60;   // empirical coefficient (0.5–0.7)
+          const lambda = 2.45; // MJ/kg  (≈ MJ/mm·m²)
+          const evapMmPerYear = (K * R) / lambda; // mm/year
+          
+          // Surface area (m²) – use the fitted surface plane area.
+          const surfaceArea = Math.max(1e-6, groundDims.sx * groundDims.sz);
+          const baselineLiters = evapMmPerYear * surfaceArea; // 1 mm over 1 m² = 1 L
+          
+          // Coverage ratio = projected PV area / surface area.
+          const metaIdx = parseInt(panelTypeEl.value || "0", 10);
+          const meta = panelsMeta[metaIdx] || panelsMeta[0];
+          const panelArea = (meta?.width_m || 1.0) * (meta?.height_m || 1.6);
+          const totalPanels = getCurrentTotalPanels();
+          const type = arrayTypeEl.value === "roof" ? "roof" : "waves";
+          const azimuthDeg = clampAzimuth(parseInt(azimuthEl.value || "180", 10));
+          const elev = parseFloat(elevationEl.value || "0") || 0;
+          
+          let tiltDeg = 0;
+          if (type === "waves") tiltDeg = 12.5;
+          else tiltDeg = parseFloat(roofTiltEl.value || "0") || 0;
+          const tiltRad = degToRad(tiltDeg);
+          const plusOrientationKey = orientationKeyFromAzTilt(azimuthDeg, tiltDeg);
+          const minusOrientationKey = orientationKeyFromAzTilt(azimuthDeg + 180, tiltDeg);
+          const projectedPvArea = totalPanels * panelArea * Math.cos(tiltRad);
+          const coverage = Math.max(0, Math.min(1, projectedPvArea / surfaceArea));
+          
+          // Shading-only reductions from the report base simulation (section 3.3)
+          // Waves: 52.3% vs uncovered; canopy: 36.3% vs uncovered.
+          let reduction = (type === "waves") ? 0.523 : 0.363;
+          
+          // Optional wind-shield boost for Solar Waves: up to 93.6% at very low elevation
+          // (report section 5.2). We interpolate by elevation.
+          if (type === "waves") {
+          const rLow = 0.936;
+          const rHigh = 0.523;
+          const t = Math.max(0, Math.min(1, (elev - 1.0) / (5.0 - 1.0))); // 1m..5m
+          reduction = rLow + (rHigh - rLow) * t;
+          }
+          
+          // Savings: baseline * coverage * reduction
+          return baselineLiters * coverage * reduction;
+        } catch (e) {
+          return null;
+        }
+      }
+
+function handleResize() {
+        if (!renderer || !camera) return;
+        const w = canvasContainer.clientWidth;
+        const h = canvasContainer.clientHeight || 1;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        if (controls) controls.update();
+
+        // Throttle sun/heatmap updates to avoid excessive work.
+        const nowMs = performance.now();
+        if (!animate._lastSunUpdateMs || (nowMs - animate._lastSunUpdateMs) > 500) {
+          animate._lastSunUpdateMs = nowMs;
+          updateRealtimeSunAndHeatmap();
+        }
+
+        if (renderer && scene && camera) {
+          renderer.render(scene, camera);
+        }
+        updateHoverTooltip();
+      }
+
+      
+      function normalizePanelMeta(p) {
+        // Accept a few common schemas.
+        const width_m =
+          Number.isFinite(Number(p.width_m)) ? Number(p.width_m)
+          : Number.isFinite(Number(p.width)) ? (Number(p.width) > 20 ? Number(p.width) / 1000.0 : Number(p.width))
+          : Number.isFinite(Number(p.w)) ? Number(p.w)
+          : undefined;
+
+        const height_m =
+          Number.isFinite(Number(p.height_m)) ? Number(p.height_m)
+          : Number.isFinite(Number(p.height)) ? (Number(p.height) > 20 ? Number(p.height) / 1000.0 : Number(p.height))
+          : Number.isFinite(Number(p.h)) ? Number(p.h)
+          : undefined;
+
+        const rated_power_w =
+          Number.isFinite(Number(p.rated_power_w)) ? Number(p.rated_power_w)
+          : Number.isFinite(Number(p.pmp_w)) ? Number(p.pmp_w)
+          : Number.isFinite(Number(p.power_w)) ? Number(p.power_w)
+          : Number.isFinite(Number(p.rated_power)) ? Number(p.rated_power)
+          : undefined;
+
+        const noct =
+          Number.isFinite(Number(p.noct)) ? Number(p.noct)
+          : Number.isFinite(Number(p.NOCT)) ? Number(p.NOCT)
+          : undefined;
+
+        const gamma_pmp =
+          Number.isFinite(Number(p.gamma_pmp)) ? Number(p.gamma_pmp)
+          : Number.isFinite(Number(p.temp_coeff)) ? Number(p.temp_coeff)
+          : Number.isFinite(Number(p.gamma)) ? Number(p.gamma)
+          : undefined;
+
+        const eff_stc =
+          Number.isFinite(Number(p.eff_stc)) ? Number(p.eff_stc)
+          : undefined;
+
+        return {
+          id: p.id ?? p.name ?? "",
+          manufacturer: p.manufacturer ?? p.brand ?? "Unknown",
+          name: p.name ?? p.model ?? "Panel",
+          width_m: width_m,
+          height_m: height_m,
+          rated_power_w: rated_power_w,
+          eff_stc: eff_stc,
+          noct: noct,
+          gamma_pmp: gamma_pmp,
+          cooling_offset: p.cooling_offset ?? 0
+        };
+      }
+
+async function loadPanelsMeta() {
+        try {
+          // Use relative path so it works under http-server, file://, and subpaths.
+          const resp = await fetch("panels.json", { cache: "no-store" });
+          if (!resp.ok) throw new Error("HTTP " + resp.status);
+          const data = await resp.json();
+          panelsMeta = Array.isArray(data) ? data : (data && Array.isArray(data.panels) ? data.panels : []);
+          if (!panelsMeta.length) {
+            console.warn("panels.json loaded but no panels found; falling back to defaults.");
+            panelsMeta = [{ id: "generic-200", name: "Generic 1.0×1.6 m, 200 W", manufacturer: "Generic", width_m: 1.0, height_m: 1.6, thickness_m: 0.035, rated_power_w: 200, noct_c: 45, gamma_pmp_per_c: -0.0035 }];
+          }
+          // Populate dropdown
+          panelTypeEl.innerHTML = "";
+          panelsMeta.forEach((p, i) => {
+            const opt = document.createElement("option");
+            opt.value = String(i);
+            opt.textContent = p.name || p.id || `Panel ${i+1}`;
+            panelTypeEl.appendChild(opt);
+          });
+        } catch (e) {
+          console.warn("Failed to load panels.json, using fallback panel library.", e);
+          panelsMeta = [{ name: "Generic 1.0×1.6 m, 200 W", width_m: 1.0, height_m: 1.6, thickness_m: 0.035, rated_power_w: 200, noct_c: 45, gamma_pmp_per_c: -0.0035 }];
+          panelTypeEl.innerHTML = "";
+          const opt = document.createElement("option");
+          opt.value = "0";
+          opt.textContent = panelsMeta[0].name;
+          panelTypeEl.appendChild(opt);
+        }
+
+        updatePanelMetaDisplay();
+      }
+
+      function updatePanelMetaDisplay() {
+        const idx = parseInt(panelTypeEl.value || "0", 10);
+        const meta = panelsMeta[idx] || panelsMeta[0];
+        if (!meta) return;
+
+        const rated = meta.rated_power_w ? meta.rated_power_w + " W" : "–";
+        locationStatusEl.textContent =
+          "Size: " + (meta.width_m || "?") + " m × " + (meta.height_m || "?") + " m, Rated: " + rated;
+      }
+
+      function updateArrayTypeVisibility() {
+        const t = arrayTypeEl.value;
+        if (t === "waves") {
+          wavesControlsEl.style.display = "block";
+          roofControlsEl.style.display = "none";
+        } else {
+          wavesControlsEl.style.display = "none";
+          roofControlsEl.style.display = "block";
+        }
+      }
+
+      
+function clearArrayGroup() {
+  panelMeshes.length = 0;
+
+  function disposeChildren(group) {
+    if (!group) return;
+    while (group.children.length) {
+      const obj = group.children.pop();
+      obj.traverse?.((n) => {
+        if (n.geometry) n.geometry.dispose?.();
+        if (n.material) {
+          if (Array.isArray(n.material)) n.material.forEach(m => m.dispose?.());
+          else n.material.dispose?.();
+        }
+      });
+    }
+  }
+
+  disposeChildren(wavesGroup);
+  disposeChildren(roofGroup);
+}
+
+      /**
+       * Solar Waves: bi-facial E–W folds
+       * panelTemplate : THREE.Mesh template
+       * panelsPerRow  : number of panels along the "wave" (X)
+       * azimuthDeg    : array azimuth (deg)
+       * elevation     : lowest edge above ground (m)
+       *
+       * Fixed to 18 folds (rows) to match the original concept.
+       */
+      function buildWavesArray(panelTemplate, panelsPerRow, azimuthDeg, elevation) {
+        // Clear previous children (but keep the group itself)
+        while (wavesGroup.children.length > 0) {
+          wavesGroup.remove(wavesGroup.children[0]);
+        }
+        wavesGroup.visible = true;
+        roofGroup.visible = false;
+
+        panelMeshes = [];
+
+        const dims = getPanelDimsFromTemplate(panelTemplate);
+        const w = dims.w;
+        const h = dims.h;
+
+        const colsInt = Math.max(1, Math.floor(panelsPerRow));
+
+        // "Solar Waves" is modeled as repeating pitched bays along +Z.
+        // We interpret the fixed 18 rows as 9 pitched bays (2 rows per bay).
+        const rowsFixed = 18;
+        const bays = Math.max(1, Math.floor(rowsFixed / 2));
+
+        const tiltDeg = 12.5;
+        const tiltRad = degToRad(tiltDeg);
+
+        // Projected half-span of one panel along Z
+        const proj = h * Math.cos(tiltRad);
+
+        // Ridge height so that the *lowest edge* sits at elevation
+        const elev = (elevation || 0.0);
+        const ridgeY = elev + h * Math.sin(tiltRad);
+
+        const colSpacing = w;
+        const x0 = -0.5 * (colsInt - 1) * colSpacing;
+
+        // Center the bays about Z=0
+        const totalLength = bays * (2 * proj);
+        const zStart = -0.5 * totalLength;
+
+        for (let b = 0; b < bays; b++) {
+          const ridgeZ = zStart + b * (2 * proj) + proj;
+
+          // Two slopes sharing the ridge:
+          // - One extends toward +Z (rotate -tilt)
+          // - One extends toward -Z (rotate +tilt)
+          const slopePlusZ = new THREE.Group();
+          slopePlusZ.position.set(0, ridgeY, ridgeZ);
+          slopePlusZ.rotation.x = +tiltRad;
+
+          const slopeMinusZ = new THREE.Group();
+          slopeMinusZ.position.set(0, ridgeY, ridgeZ);
+          slopeMinusZ.rotation.x = -tiltRad;
+
+          for (let ix = 0; ix < colsInt; ix++) {
+            const x = x0 + ix * colSpacing;
+
+            const p1 = preparePanelInstance(panelTemplate.clone(true));
+            p1.castShadow = true;
+            p1.receiveShadow = false;
+            p1.position.set(x, 0, +h / 2);
+            slopePlusZ.add(p1);
+            panelMeshes.push(p1);
+            assignOrientationKey(p1, azimuthDeg, tiltDeg);
+            p1.userData.tau_beam = 1.0;
+            delete p1.userData.snapshot_base_poa_w_m2;
+
+            const p2 = preparePanelInstance(panelTemplate.clone(true));
+            p2.castShadow = true;
+            p2.receiveShadow = false;
+            p2.position.set(x, 0, -h / 2);
+            slopeMinusZ.add(p2);
+            panelMeshes.push(p2);
+            assignOrientationKey(p2, azimuthDeg + 180, tiltDeg);
+            p2.userData.tau_beam = 1.0;
+            delete p2.userData.snapshot_base_poa_w_m2;
+          }
+
+          wavesGroup.add(slopePlusZ);
+          wavesGroup.add(slopeMinusZ);
+        }
+
+        // Apply global azimuth to the whole wave field
+        wavesGroup.position.set(0, 0, 0);
+        wavesGroup.rotation.set(0, 0, 0);
+
+        const azDegNorm = clampAzimuth(azimuthDeg);
+        const azRad = degToRad(azDegNorm);
+
+        // Convention: 0°=N, 90°=E, 180°=S, 270°=W
+        // Base geometry faces +Z, so rotate so 180° faces "South".
+        wavesGroup.rotation.y = azRad - Math.PI;
+        // Hemisphere mirroring for Solar Waves:
+        // The wave fold sequence is authored in a fixed local X direction. In the Southern Hemisphere,
+        // mirror along local X so the "leading" fold swaps, matching typical equator-facing intuition.
+        if (currentLocation && Number.isFinite(currentLocation.lat)) {
+          const wantMirror = currentLocation.lat < 0;
+          const sz = Math.abs(wavesGroup.scale.z || 1);
+          wavesGroup.scale.z = wantMirror ? -sz : sz;
+        }
+
+
+        dbgFrame("waves", {lat: currentLocation && currentLocation.lat, az: azDegNorm, rotY: wavesGroup.rotation.y, scale: {x:wavesGroup.scale.x,y:wavesGroup.scale.y,z:wavesGroup.scale.z}});
+        wavesGroup.updateMatrixWorld(true);
+      }
+
+
+      // Helper – get panel dimensions from BoxGeometry
+      function getPanelDimsFromTemplate(panel) {
+        const g = panel.geometry && panel.geometry.parameters;
+        if (!g) return { w: 1.0, h: 1.6, t: 0.035 };
+        // For THREE.BoxGeometry(width, height, depth) used in makePanelTemplateFromMeta:
+        return { w: g.width || 1.0, h: g.depth || 1.6, t: g.height || 0.035 };
+      }
+
+function _normalizeUVs01(geometry) {
+  // Ensure UVs lie in [0..1] *without* introducing tiling.
+  // If UVs already span ~[0..1], do nothing.
+  // If UVs span [0..N], rescale linearly so the texture stretches once across the surface (1x1).
+  if (!geometry || !geometry.attributes || !geometry.attributes.uv) return;
+  if (geometry.userData && geometry.userData._uvNormalized01) return;
+
+  const uv = geometry.attributes.uv;
+  const EPS = 1e-6;
+
+  let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
+  for (let i = 0; i < uv.count; i++) {
+    const u = uv.getX(i);
+    const v = uv.getY(i);
+    if (u < minU) minU = u;
+    if (u > maxU) maxU = u;
+    if (v < minV) minV = v;
+    if (v > maxV) maxV = v;
+  }
+
+  const spanU = maxU - minU;
+  const spanV = maxV - minV;
+
+  // If already 0..1-ish, keep as-is (also preserves BoxGeometry exact 0/1 UVs).
+  const needsRescale = (spanU > 1.0 + EPS) || (spanV > 1.0 + EPS) || (minU < -EPS) || (minV < -EPS) || (maxU > 1.0 + EPS) || (maxV > 1.0 + EPS);
+  if (!needsRescale) {
+    geometry.userData = geometry.userData || {};
+    geometry.userData._uvNormalized01 = true;
+    return;
+  }
+
+  const denomU = spanU > EPS ? spanU : 1.0;
+  const denomV = spanV > EPS ? spanV : 1.0;
+
+  for (let i = 0; i < uv.count; i++) {
+    const u0 = uv.getX(i);
+    const v0 = uv.getY(i);
+    const u = (u0 - minU) / denomU;
+    const v = (v0 - minV) / denomV;
+    uv.setXY(i, u, v);
+  }
+
+  uv.needsUpdate = true;
+  geometry.userData = geometry.userData || {};
+  geometry.userData._uvNormalized01 = true;
+}
+
+function makePanelTemplateFromMeta(meta) {
+  const w = meta.width_m || 1.0;
+  const h = meta.height_m || 1.6;
+  const t = meta.thickness_m || 0.035;
+
+  const geom = new THREE.BoxGeometry(w, t, h); // X=width, Y=thickness, Z=height
+  _normalizeUVs01(geom);
+  const mat  = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0.05 });
+  const mesh = new THREE.Mesh(geom, mat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = false;
+  mesh.userData.isPanel = true;
+
+  const edges = new THREE.EdgesGeometry(geom);
+  const line  = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x333333 }));
+  mesh.add(line);
+
+  return mesh;
+}
+
+      function preparePanelInstance(panel) {
+        if (!panel) return panel;
+        panel.userData.isPanel = true;
+
+        // Ensure per-panel coloring can be applied without material-sharing side effects.
+        panel.traverse(child => {
+          if (child !== panel) {
+            child.userData.parentPanel = panel;
+          }
+          if (child && child.isMesh && child.material) {
+            // Clone once; we will later overwrite color per panel in snapshot/shadow gradient modes.
+            child.material = child.material.clone();
+            child.material.side = THREE.DoubleSide;
+            child.userData._hasUniqueMat = true;
+          }
+        });
+
+        return panel;
+      }
+
+      function assignOrientationKey(mesh, azDeg, tiltDeg) {
+        if (!mesh) return;
+        mesh.userData.orientationKey = orientationKeyFromAzTilt(azDeg, tiltDeg);
+      }
+
+      
+      function ensurePanelOrientationKey(mesh) {
+        if (!mesh) return;
+        if (mesh.userData && mesh.userData.orientationKey) return;
+
+        const azDeg = clampAzimuth(parseInt(azimuthEl.value || "180", 10));
+        const type = (arrayTypeEl && arrayTypeEl.value === "roof") ? "roof" : "waves";
+
+        if (type === "roof") {
+          const tiltDeg = parseFloat(roofTiltEl.value || "15");
+          assignOrientationKey(mesh, azDeg, tiltDeg);
+          return;
+        }
+
+        // Solar Waves: infer fold side from local Z position (built at +/- h/2)
+        const tiltDeg = 12.5;
+        const localZ = (mesh.position && Number.isFinite(mesh.position.z)) ? mesh.position.z : 0;
+        const sideAz = localZ >= 0 ? azDeg : (azDeg + 180);
+        assignOrientationKey(mesh, sideAz, tiltDeg);
+      }
+
+/**
+       * Solar Roof: simple planar rectangular roof
+       * panelTemplate : THREE.Mesh used as a template (has edges as a child)
+       * cols, rows    : integer panel counts X/Y
+       * tiltDeg       : roof tilt (deg)
+       * azimuthDeg    : 0°=N, 90°=E, 180°=S, 270°=W
+       * elevation     : lowest edge above ground (m)
+       */
+      function buildRoofArray(panelTemplate, cols, rows, tiltDeg, azimuthDeg, elevation) {
+        // Clear previous children
+        while (roofGroup.children.length > 0) {
+          roofGroup.remove(roofGroup.children[0]);
+        }
+        roofGroup.visible = true;
+        wavesGroup.visible = false;
+
+        panelMeshes = [];
+
+        const dims = getPanelDimsFromTemplate(panelTemplate);
+        const w = dims.w;
+        const h = dims.h;
+
+        const colsInt = Math.max(1, Math.floor(cols));
+        const rowsInt = Math.max(1, Math.floor(rows));
+
+        // Panels laid out in local X–Z plane, then the whole roofGroup is tilted
+        const colSpacing = w;
+        const rowSpacing = h;
+
+        const x0 = -0.5 * (colsInt - 1) * colSpacing;
+        const z0 = -0.5 * (rowsInt - 1) * rowSpacing;
+        const roofOrientationKey = orientationKeyFromAzTilt(azimuthDeg, tiltDeg);
+
+        for (let iz = 0; iz < rowsInt; iz++) {
+          for (let ix = 0; ix < colsInt; ix++) {
+            const p = preparePanelInstance(panelTemplate.clone(true));
+            p.castShadow = true;
+            p.receiveShadow = false;
+            const x = x0 + ix * colSpacing;
+            const z = z0 + iz * rowSpacing;
+            p.position.set(x, 0, z);
+            roofGroup.add(p);
+          
+            panelMeshes.push(p);
+            assignOrientationKey(p, azimuthDeg, tiltDeg);
+            p.userData.tau_beam = 1.0;
+            delete p.userData.snapshot_base_poa_w_m2;
+}
+        }
+
+        // Reset transform then apply tilt + azimuth
+        roofGroup.position.set(0, 0, 0);
+        roofGroup.rotation.set(0, 0, 0);
+        roofGroup.updateMatrixWorld(true);
+
+        const tiltRad = degToRad(tiltDeg || 0.0);
+        const azDegNorm = clampAzimuth(azimuthDeg);
+        const azRad = degToRad(azDegNorm);
+
+        // Lift so the lowest edge is at the requested elevation
+        roofGroup.position.y = (elevation || 0.0) + 0.5 * h * Math.sin(tiltRad);
+
+        // Apply azimuth (yaw around world up) first, then tilt about local X.
+        // This makes azimuth a pure spin of the already-tilted plane.
+        roofGroup.rotation.set(0, 0, 0);
+        roofGroup.rotateY(azRad - Math.PI);
+        dbgFrame("roof", {lat: currentLocation && currentLocation.lat, az: azDegNorm, rotY: roofGroup.rotation.y});
+        roofGroup.rotateX(-tiltRad);
+
+        roofGroup.updateMatrixWorld(true);
+      }
+
+      function rebuildArrayGeometry() {
+  invalidateWaterState("rebuildArrayGeometry");
+  if (!arrayGroup) return;
+  clearArrayGroup();
+
+  const metaIdx = parseInt(panelTypeEl.value || "0", 10);
+  const meta = panelsMeta[metaIdx] || panelsMeta[0];
+  if (!meta) return;
+
+  // Build a fresh panel template for this meta
+  const panelTemplate = makePanelTemplateFromMeta(meta);
+  currentPanelDims = getPanelDimsFromTemplate(panelTemplate);
+
+  // Panels act as occluders for GPU shadow sampling
+  panelTemplate.traverse(obj => {
+    if (obj && obj.isMesh) {
+      obj.castShadow = true;
+      obj.receiveShadow = false;
+    }
+  });
+
+  const elevation = parseFloat(elevationEl.value || "0.6");
+  const azDeg = clampAzimuth(parseInt(azimuthEl.value || "180", 10));
+
+          // updateCompass removed (3D north arrow used instead)
+
+  const type = arrayTypeEl.value === "roof" ? "roof" : "waves";
+  if (type === "waves") {
+    const panelsPerRow = parseInt(wavesPanelsPerRowEl.value || "5", 10);
+    buildWavesArray(panelTemplate, panelsPerRow, azDeg, elevation);
+  } else {
+    const cols = parseInt(roofColsEl.value || "20", 10);
+    const rows = parseInt(roofRowsEl.value || "4", 10);
+    const tilt = parseFloat(roofTiltEl.value || "15");
+    buildRoofArray(panelTemplate, cols, rows, tilt, azDeg, elevation);
+  }
+
+  // Resize ground to fit the new geometry (approx. 5m margin)
+  updateGroundToArray(5);
+  // Update preview sun/shading metric (no UI changes)
+  try {
+    computeRepresentativeTransmittance("interactive");
+  } catch (e) {
+    // ignore
+  }
+  applyRenderModeToScene();
+  updateProjectedShadow();
+}
+
+      async function fetchSnapshotDay(basePayload) {
+        if (!currentLocation || !basePayload) return;
+        const resp = await fetch(API_BASE + "/simulate_snapshot_day", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...basePayload,
+            lat: currentLocation.lat,
+            lon: currentLocation.lon
+          })
+        });
+        if (!resp.ok) {
+          const txt = await resp.text();
+          throw new Error("Snapshot HTTP " + resp.status + ": " + txt);
+        }
+        const data = await resp.json();
+        applySnapshotData(data);
+      }
+
+async function runSimulationAndUpdateUI
+() {
+        if (!currentLocation) return;
+
+        const metaIdx = parseInt(panelTypeEl.value || "0", 10);
+        const meta = panelsMeta[metaIdx] || panelsMeta[0];
+        if (!meta) return;
+
+        const arrayType = arrayTypeEl.value === "roof" ? "roof" : "waves";
+        const azDeg = clampAzimuth(parseInt(azimuthEl.value || "180", 10));
+        const totalPanels = getCurrentTotalPanels();
+        metricPanelsEl.textContent = String(totalPanels);
+
+        const payload = {
+          lat: currentLocation.lat,
+          lon: currentLocation.lon,
+          water_width_m: (surfaceTypeEl && surfaceTypeEl.value === "water") ? (Number.isFinite(waterWidthM) ? waterWidthM : (waterWidthEl ? parseFloat(waterWidthEl.value || "20") : 20.0)) : null,
+          array_type: arrayType,
+          azimuth_deg: azDeg,
+          tilt_deg:
+            arrayType === "waves"
+              ? 12.5
+              : parseFloat(roofTiltEl.value || "15"),
+          total_panels: totalPanels,
+          panel_width_m: meta.width_m || 1.0,
+          panel_height_m: meta.height_m || 1.6,
+          // Drive backend electrical/thermal params from panels.json when available
+          eff_stc: (function () {
+            const w = Number(meta.rated_power_w);
+            const a = (Number(meta.width_m) || 1.0) * (Number(meta.height_m) || 1.6);
+            if (Number.isFinite(w) && w > 0 && Number.isFinite(a) && a > 0) {
+              // STC irradiance is 1000 W/m²
+              const eff = w / (1000.0 * a);
+              return Math.max(0, Math.min(0.30, eff));
+            }
+            // fallback: if meta.eff_stc exists, use it, else backend default
+            const effMeta = Number(meta.eff_stc);
+            return Number.isFinite(effMeta) ? Math.max(0, Math.min(0.30, effMeta)) : undefined;
+          })(),
+          noct: Number.isFinite(Number(meta.noct)) ? Number(meta.noct) : undefined,
+          temp_coeff: (function () {
+            // panels.json may store gamma_pmp as fraction (e.g. -0.0035) or percent (e.g. -0.35)
+            const g = Number(meta.gamma_pmp ?? meta.temp_coeff);
+            if (!Number.isFinite(g)) return undefined;
+            return Math.abs(g) > 0.02 ? (g / 100.0) : g;
+          })(),
+          cooling_offset: Number.isFinite(Number(meta.cooling_offset)) ? Number(meta.cooling_offset) : undefined
+        };
+
+        simErrorEl.style.display = "none";
+        simStatusEl.textContent = "Running simulation…";
+        isSimRunning = true;
+
+        try {
+          // Determine whether to use shaded endpoint
+          const surface = (surfaceTypeEl && surfaceTypeEl.value)
+            ? String(surfaceTypeEl.value).toLowerCase()
+            : "ground";
+          const useShaded = surface === "water";
+
+          // Choose archive year deterministically (backend also defaults, but we send it for reproducibility)
+          const year = lastFullYear();
+
+          let endpoint = "/simulate";
+          let shadedPayload = payload;
+
+          if (useShaded) {
+            simStatusEl.textContent = "Computing shading samples…";
+
+            const samples = await buildShadingSamplesGPU({
+              year,
+              lat: currentLocation.lat,
+              lon: currentLocation.lon,
+              mode: "interactive"
+            });
+
+            endpoint = "/simulate_shaded";
+            const svf_n_rays = 64;
+            const svf = computeSVFCPU(svf_n_rays);
+
+            shadedPayload = {
+              ...payload,
+              year,
+              svf,
+              svf_n_rays,
+              svf_scheme: (typeof SVF_SCHEME === "string" ? SVF_SCHEME : "hammersley_vdc2_uniform_hemisphere"),
+              shading_samples: samples
+            };
+          }
+
+          const resp = await fetch(API_BASE + endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(shadedPayload)
+          });
+
+          if (!resp.ok) {
+            const txt = await resp.text();
+            throw new Error("HTTP " + resp.status + ": " + txt);
+          }
+          const data = await resp.json();
+          window.__lastSimEndpoint = API_BASE + endpoint;
+          window.__lastSimRequest = shadedPayload;
+          window.__lastSimResponse = data;
+          const annual = data.annual_energy_kwh;
+          const meanPoa = data.mean_poa_w_m2;
+
+          lastSimMeanPOA = meanPoa;
+
+          metricAnnualEl.textContent = formatAnnual(annual);
+          metricPOAEl.textContent = formatPOA(meanPoa);
+          legendMeanEl.textContent = "Mean POA: " + formatPOA(meanPoa);
+          // NOTE: Do not override the per-panel / ground field colours here.
+          // Field shading + legend scaling are managed by snapshot/realtime shading handlers
+          // (e.g., applySnapshotData / applyPanelHeatmapFromSun), which derive per-panel POA_eff
+          // from the current sun state and the GPU shadow mask.
+let savedLiters = estimateWaterSavingsLitersPerYear();
+
+          // --- SANITY CHECK (add here) ---
+          if (useShaded) {
+            console.log("[water shading sanity]", {
+              baseline_kwh_m2: data.water_baseline_kwh_m2,
+              shaded_kwh_m2: data.water_shaded_kwh_m2,
+              reduction_pct: data.water_reduction_pct
+            });
+          }
+
+          // --- SCALE BY IRRADIANCE REDUCTION ---
+          if (useShaded && Number.isFinite(data.water_reduction_pct)) {
+            const reductionFrac = Math.max(0, Math.min(1, data.water_reduction_pct / 100.0));
+            if (savedLiters != null) {
+              savedLiters *= reductionFrac;
+  }
+  rebuildSnapshotContours();
+  updateProjectedShadow();
+}
+
+          metricWaterSavedEl.textContent =
+            savedLiters == null ? "–" : formatLitersPerYear(savedLiters);
+
+
+          simStatusEl.textContent = "Simulation up to date.";
+          fetchSnapshotDay(payload).catch(err => {
+            console.warn("Snapshot day fetch failed", err);
+          });
+        } catch (err) {
+          console.error("Simulation error", err);
+          simErrorEl.style.display = "block";
+          simErrorEl.textContent = "Simulation error: " + (err.message || String(err));
+          simStatusEl.textContent = "";
+        } finally {
+          isSimRunning = false;
+        }
+      }
+
+
+      function collectPerPanelDataForExport() {
+        // Provides a lightweight per-panel audit table for the CURRENT visual state.
+        // Includes world position (m), orientation key, and the most recent shading fields if available.
+        if (!panelMeshes || !panelMeshes.length) return [];
+        const out = [];
+        const wp = new THREE.Vector3();
+        for (let i = 0; i < panelMeshes.length; i++) {
+          const p = panelMeshes[i];
+          if (!p) continue;
+          p.getWorldPosition(wp);
+          out.push({
+            idx: i,
+            x_m: Number(wp.x.toFixed(4)),
+            y_m: Number(wp.y.toFixed(4)),
+            z_m: Number(wp.z.toFixed(4)),
+            orientation_key: p.userData?.orientationKey ?? null,
+            poa_eff_w_m2: Number.isFinite(p.userData?.poa_eff_w_m2) ? Number(p.userData.poa_eff_w_m2) : null,
+            tau_beam: Number.isFinite(p.userData?.tau_beam) ? Number(p.userData.tau_beam) : null
+          });
+        }
+        return out;
+      }
+
+      async function geocode(query) {
+        const url = API_BASE + "/geocode?q=" + encodeURIComponent(query);
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          throw new Error("HTTP " + resp.status);
+        }
+        return await resp.json();
+      }
+
+      function openLocationModal(provider, results) {
+        pendingLocationResults = results.slice();
+        currentProvider = provider;
+        locationModalProvider.textContent = provider;
+        locationListEl.innerHTML = "";
+        results.forEach((r, idx) => {
+          const li = document.createElement("li");
+          const id = "loc-" + idx;
+          li.innerHTML =
+            '<label><input type="radio" name="locationChoice" value="' +
+            idx +
+            '" ' +
+            (idx === 0 ? "checked" : "") +
+            ' /> <span>' +
+            r.display_name +
+            "</span></label>";
+          locationListEl.appendChild(li);
+        });
+        locationModal.style.display = "flex";
+      }
+
+      function closeLocationModal() {
+        locationModal.style.display = "none";
+        pendingLocationResults = [];
+      }
+
+function maybeSetEquatorFacingAzimuth() {
+  // Optional UX helper: default the array azimuth to face the equator.
+  // North hemisphere: face south (180). South hemisphere: face north (0).
+  try {    if (!currentLocation || !Number.isFinite(currentLocation.lat)) return;
+    const target = currentLocation.lat < 0 ? 0 : 180;
+    // Only change if user hasn't intentionally set a different azimuth since load.
+    // (We treat any value other than 0/180 as intentional.)
+    const cur = parseFloat(azimuthEl?.value || "NaN");
+    const isDefaultLike = (cur === 0 || cur === 180 || !Number.isFinite(cur));
+    if (isDefaultLike) {
+      azimuthEl.value = String(target);
+      azimuthValEl.textContent = target + "°";
+    }
+  } catch (_) {}
+}
+
+      function applyLocationResult(res, provider) {
+        const latNum = typeof res.lat === "number" ? res.lat : parseFloat(res.lat);
+        const lonNum = typeof res.lon === "number" ? res.lon : parseFloat(res.lon);
+        currentLocation = { lat: latNum, lon: lonNum, name: res.display_name };
+        currentProvider = provider;
+
+        metricLocationEl.textContent = res.display_name;
+        if (downloadBtn) downloadBtn.disabled = false;
+        if (Number.isFinite(latNum) && Number.isFinite(lonNum)) {
+          locationStatusEl.textContent =
+            "Selected via " + provider + ". Lat " + latNum.toFixed(4) + ", Lon " + lonNum.toFixed(4) + ".";
+        } else {
+          locationStatusEl.textContent = "Selected via " + provider + ".";
+        }
+        maybeSetEquatorFacingAzimuth();
+        maybeSetEquatorFacingAzimuth();
+        rebuildArrayGeometry();
+        scheduleSimulation();
+      }
+
+      
+function setLocationLoading(isLoading, msg){
+  if (locationLoadingEl) {
+    locationLoadingEl.style.display = isLoading ? "flex" : "none";
+  }
+  if (locationLoadingTextEl && msg) locationLoadingTextEl.textContent = msg;
+  if (locationSearchBtn) {
+    locationSearchBtn.disabled = !!isLoading;
+    locationSearchBtn.textContent = isLoading ? "Searching…" : "Search";
+  }
+}
+
+async function searchAndMaybeSelectLocation(query, isInitial = false) {
+        const qNorm = (query || "").trim();
+        if (!qNorm) return;
+        // Prevent repeated prompts / overlapping requests.
+        if (geocodeInFlight) return;
+        if (!isInitial && currentLocation && qNorm === lastGeocodeQuery && locationModal && locationModal.style.display !== "flex") {
+          return;
+        }
+        lastGeocodeQuery = qNorm;
+        geocodeInFlight = true;
+        const reqId = ++geocodeRequestId;
+        setLocationLoading(true, "Looking up location…");
+        locationStatusEl.textContent = "Looking up location…";
+        try {
+          const data = await geocode(qNorm);
+          if (reqId !== geocodeRequestId) return;
+          const provider = data.provider || "open-meteo";
+          const results = data.results || [];
+          if (!results.length) {
+            locationStatusEl.textContent = "No results. Try refining the query.";
+            return;
+          }
+          if (results.length === 1 || isInitial) {
+            applyLocationResult(results[0], provider);
+          } else {
+            openLocationModal(provider, results);
+          }
+        } catch (err) {
+          console.error("Geocode error", err);
+          locationStatusEl.textContent =
+            "Location lookup failed. Please check your network or try again.";
+        }
+       finally {
+          // ensure we always release the in-flight lock
+          geocodeInFlight = false;
+          setLocationLoading(false);
+        }
+      }
+
+      function bindEvents() {
+        locationSearchBtn.addEventListener("click", () => {
+          const q = (locationInput.value || "").trim();
+          searchAndMaybeSelectLocation(q, false);
+        });
+
+        locationInput.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter") {
+            const q = (locationInput.value || "").trim();
+            searchAndMaybeSelectLocation(q, false);
+          }
+        });
+
+        arrayTypeEl.addEventListener("change", () => {
+          updateArrayTypeVisibility();
+
+          // Default elevations by array type
+          if (arrayTypeEl.value === "roof") {
+            elevationEl.value = "4.0";
+            elevationValEl.textContent = "4.0 m";
+          } else {
+            elevationEl.value = "0.6";
+            elevationValEl.textContent = "0.6 m";
+          }
+
+          maybeSetEquatorFacingAzimuth();
+        rebuildArrayGeometry();
+          scheduleSimulation();
+        });
+
+        if (renderModeEl) {
+          renderModeEl.addEventListener("change", () => {
+            const v = String(renderModeEl.value || "textures");
+            setRenderMode(v);
+          });
+        }
+
+        panelTypeEl.addEventListener("change", () => {
+          updatePanelMetaDisplay();
+          maybeSetEquatorFacingAzimuth();
+        rebuildArrayGeometry();
+          scheduleSimulation();
+        });
+
+        wavesPanelsPerRowEl.addEventListener("input", () => {
+          wavesPanelsPerRowValEl.textContent = wavesPanelsPerRowEl.value;
+          maybeSetEquatorFacingAzimuth();
+        rebuildArrayGeometry();
+          scheduleSimulation();
+        });
+
+        roofColsEl.addEventListener("input", () => {
+          roofColsValEl.textContent = roofColsEl.value;
+          maybeSetEquatorFacingAzimuth();
+        rebuildArrayGeometry();
+          scheduleSimulation();
+        });
+
+        roofRowsEl.addEventListener("input", () => {
+          roofRowsValEl.textContent = roofRowsEl.value;
+          maybeSetEquatorFacingAzimuth();
+        rebuildArrayGeometry();
+          scheduleSimulation();
+        });
+
+        roofTiltEl.addEventListener("input", () => {
+          roofTiltValEl.textContent = roofTiltEl.value + "°";
+          maybeSetEquatorFacingAzimuth();
+        rebuildArrayGeometry();
+          scheduleSimulation();
+        });
+
+        if (azimuthEl && azimuthValEl) {
+
+
+        azimuthEl.addEventListener("input", () => {
+          const val = clampAzimuth(parseInt(azimuthEl.value || "180", 10));
+          azimuthEl.value = String(val);
+          azimuthValEl.textContent = val + "°";        rebuildArrayGeometry();
+scheduleSimulation();
+        });
+        }
+
+        elevationEl.addEventListener("input", () => {
+          const v = parseFloat(elevationEl.value || "0.6");
+          elevationValEl.textContent = v.toFixed(1) + " m";
+          maybeSetEquatorFacingAzimuth();
+        rebuildArrayGeometry();
+          scheduleSimulation();
+        });
+
+        if (waterWidthEl && waterWidthValEl) {
+          waterWidthEl.addEventListener("input", () => {
+            const v = Math.min(20.0, Math.max(1.0, parseFloat(waterWidthEl.value || "5.0")));
+            waterWidthM = v;
+            waterWidthValEl.textContent = v.toFixed(1) + " m";
+            // Resize the surface plane (center stays fixed) and resimulate so that partial shadowing is respected.
+            invalidateWaterState("waterWidth");
+            updateGroundToArray(5);
+            scheduleSimulation();
+          });
+        }
+
+        surfaceTypeEl.addEventListener("change", () => {
+          invalidateWaterState("surfaceType");
+          if (currentRenderMode === 'textures') {
+            const isWater = surfaceTypeEl.value === "water";
+            if (waterWidthRowEl) waterWidthRowEl.style.display = isWater ? "block" : "none";
+            if (isWater && waterWidthEl && waterWidthValEl) {
+              const v = Math.min(20.0, Math.max(1.0, parseFloat(waterWidthEl.value || String(waterWidthM || 5.0))));
+              waterWidthM = v;
+              waterWidthEl.value = String(v);
+              waterWidthValEl.textContent = v.toFixed(1) + " m";
+            }
+            updateGroundToArray(5);
+            if (shadowOverlayMesh) shadowOverlayMesh.visible = false;
+            applyRenderModeToGround();
+            scheduleSimulation();
+            return;
+          }
+          // Switch the visual surface and recompute the water metric (if enabled).
+          if (groundMesh && groundMesh.material && groundMesh.material.color) {
+            const isWater = surfaceTypeEl.value === "water";
+
+            // Toggle water width control visibility
+            if (waterWidthRowEl) waterWidthRowEl.style.display = isWater ? "block" : "none";
+            if (isWater && waterWidthEl && waterWidthValEl) {
+              const v = Math.min(20.0, Math.max(1.0, parseFloat(waterWidthEl.value || String(waterWidthM || 5.0))));
+              waterWidthM = v;
+              waterWidthEl.value = String(v);
+              waterWidthValEl.textContent = v.toFixed(1) + " m";
+            }
+            
+            // Remove any shadow texture when leaving Water mode.
+            if (!isWater && groundMesh && groundMesh.material && groundMesh.material.map === groundShadowTexture) {
+              groundMesh.material.map = null;
+              groundMesh.material.needsUpdate = true;
+            }
+// Base tint; simulation pass will still apply irradiance colors.
+            groundMesh.material.color.setHex(isWater ? 0x3aa3ff : 0xc3f4f6);
+          }
+          // Ensure plane continues to fit the array (e.g., after switching array type)
+          updateGroundToArray(5);
+          // Hide any debug shadow overlay when toggling surface; it can look like a "stuck" duplicate plane.
+          if (shadowOverlayMesh) {
+            shadowOverlayMesh.visible = false;
+          }
+          scheduleSimulation();
+        });
+
+
+        if (downloadBtn) {
+          downloadBtn.addEventListener("click", async () => {
+            try {
+              if (!currentLocation) return;
+
+              const surface = (surfaceTypeEl && surfaceTypeEl.value)
+                ? String(surfaceTypeEl.value).toLowerCase()
+                : "ground";
+
+              // If we are on water, request the backend audit pack ZIP.
+              if (surface === "water") {
+                downloadBtn.disabled = true;
+                if (downloadHint) downloadHint.textContent = "Building shading samples and exporting ZIP…";
+
+                const metaIdx = parseInt(panelTypeEl.value || "0", 10);
+                const meta = panelsMeta[metaIdx] || panelsMeta[0];
+                if (!meta) throw new Error("Panel metadata not loaded.");
+
+                const arrayType = arrayTypeEl.value === "roof" ? "roof" : "waves";
+                const azDeg = clampAzimuth(parseInt(azimuthEl.value || "180", 10));
+                const totalPanels = getCurrentTotalPanels();
+
+                const payload = {
+                  lat: currentLocation.lat,
+                  lon: currentLocation.lon,
+                  array_type: arrayType,
+                  azimuth_deg: azDeg,
+                  tilt_deg: arrayType === "waves" ? 12.5 : parseFloat(roofTiltEl.value || "15"),
+                  total_panels: totalPanels,
+                  panel_width_m: meta.width_m || 1.0,
+                  panel_height_m: meta.height_m || 1.6,
+                  eff_stc: (function () {
+                    const w = Number(meta.rated_power_w);
+                    const a = (Number(meta.width_m) || 1.0) * (Number(meta.height_m) || 1.6);
+                    if (Number.isFinite(w) && w > 0 && Number.isFinite(a) && a > 0) {
+                      const eff = w / (1000.0 * a);
+                      return Math.max(0, Math.min(0.30, eff));
+                    }
+                    const effMeta = Number(meta.eff_stc);
+                    return Number.isFinite(effMeta) ? Math.max(0, Math.min(0.30, effMeta)) : undefined;
+                  })(),
+                  noct: Number.isFinite(Number(meta.noct)) ? Number(meta.noct) : undefined,
+                  temp_coeff: (function () {
+                    const g = Number(meta.gamma_pmp ?? meta.temp_coeff);
+                    if (!Number.isFinite(g)) return undefined;
+                    return Math.abs(g) > 0.02 ? (g / 100.0) : g;
+                  })(),
+                  cooling_offset: Number.isFinite(Number(meta.cooling_offset)) ? Number(meta.cooling_offset) : undefined
+                };
+
+                const year = lastFullYear();
+
+                // Higher quality for export pack
+                const samples = await buildShadingSamplesGPU({
+                  year,
+                  lat: currentLocation.lat,
+                  lon: currentLocation.lon,
+                  mode: "final"
+                });
+
+                const svf_n_rays = 256;
+                const svf = computeSVFCPU(svf_n_rays);
+
+                const shadedPayload = {
+                  ...payload,
+                  year,
+                  svf,
+                  svf_n_rays,
+                  svf_scheme: (typeof SVF_SCHEME === "string" ? SVF_SCHEME : "hammersley_vdc2_uniform_hemisphere"),
+                  shading_samples: samples
+                };
+
+                const resp = await fetch(API_BASE + "/export_shaded_run", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(shadedPayload)
+                });
+
+                if (!resp.ok) {
+                  const txt = await resp.text();
+                  throw new Error("HTTP " + resp.status + ": " + txt);
+                }
+
+                const blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement("a");
+                a.href = url;
+                const safeName = (currentLocation.name || "location").replace(/[^a-z0-9-_]+/gi, "_").slice(0, 60);
+                a.download = "sw_audit_pack_" + safeName + "_" + year + ".zip";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+
+                if (downloadHint) downloadHint.textContent = "Audit pack exported.";
+              } else {
+                // Ground: download latest JSON response (if available)
+                const data = window.__lastSimResponse || null;
+                if (!data) {
+                  if (downloadHint) downloadHint.textContent = "Run a simulation first, then download.";
+                  return;
+                }
+                const perPanel = collectPerPanelDataForExport();
+                const exportObj = {
+                  ...data,
+                  per_panel: perPanel,
+                  export_meta: {
+                    created_utc: new Date().toISOString(),
+                    array_type: (arrayTypeEl && arrayTypeEl.value) ? String(arrayTypeEl.value) : null,
+                    surface: surface,
+                    snapshot_day: (snapshotData && snapshotData.snapshot_day) ? snapshotData.snapshot_day : null
+                  }
+                };
+                const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                const safeName = (currentLocation.name || "location").replace(/[^a-z0-9-_]+/gi, "_").slice(0, 60);
+                a.download = "sw_simulation_" + safeName + ".json";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                if (downloadHint) downloadHint.textContent = "Simulation JSON downloaded.";
+              }
+            } catch (e) {
+              console.error("Download/export failed", e);
+              if (downloadHint) downloadHint.textContent = "Download failed: " + (e.message || String(e));
+            } finally {
+              if (downloadBtn) downloadBtn.disabled = false;
+            }
+          });
+        }
+        locationModalCancelBtn.addEventListener("click", () => {
+          closeLocationModal();
+        });
+
+        locationModalApplyBtn.addEventListener("click", () => {
+          const radios = locationListEl.querySelectorAll("input[name='locationChoice']");
+          let idx = 0;
+          radios.forEach(r => {
+            if (r.checked) idx = parseInt(r.value || "0", 10);
+          });
+          const res = pendingLocationResults[idx];
+          if (res) {
+            applyLocationResult(res, currentProvider || "open-meteo");
+          }
+          closeLocationModal();
+        });
+      }
+
+      async function bootstrap() {
+        initThree();
+        await loadPanelsMeta();
+        updateArrayTypeVisibility();
+        bindEvents();
+
+        // Initialize water width control visibility/value
+        if (waterWidthRowEl && surfaceTypeEl) {
+          const isWater = surfaceTypeEl.value === "water";
+          waterWidthRowEl.style.display = isWater ? "block" : "none";
+          if (isWater && waterWidthEl && waterWidthValEl) {
+            const v = Math.min(20.0, Math.max(1.0, parseFloat(waterWidthEl.value || String(waterWidthM || 5.0))));
+            waterWidthM = v;
+            waterWidthValEl.textContent = v.toFixed(1) + " m";
+          }
+        }
+
+        // Build default geometry immediately (white) even before a location is selected
+        maybeSetEquatorFacingAzimuth();
+        rebuildArrayGeometry();
+        updateGroundToArray(5);
+
+        // Default location: Sydney, Australia
+        locationInput.value = "Sydney, Australia";
+        searchAndMaybeSelectLocation("Sydney, Australia", true);
+      }
+
+      bootstrap();
+    })();
+  </script>
+</body>
+</html>
