@@ -9,8 +9,8 @@
     :root {
       --bg: #f4f6fb;
       --sidebar-bg: #ffffff;
-      --accent: #ff6a3d;
-      --accent-soft: #ffe0d3;
+      --accent: #3fa51c;
+      --accent-soft: #dff3d6;
       --border-subtle: #d3d8e4;
       --text-main: #222631;
       --text-muted: #6f7484;
@@ -164,6 +164,42 @@
       margin: 0;
     }
 
+    /* Slider styling (match accent colour) */
+    input[type="range"]{
+      accent-color: var(--accent);
+    }
+    input[type="range"]::-webkit-slider-runnable-track{
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(34, 38, 49, 0.18);
+    }
+    input[type="range"]::-webkit-slider-thumb{
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid #ffffff;
+      margin-top: -5px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.25);
+      cursor: pointer;
+    }
+    input[type="range"]::-moz-range-track{
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(34, 38, 49, 0.18);
+    }
+    input[type="range"]::-moz-range-thumb{
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid #ffffff;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.25);
+      cursor: pointer;
+    }
+    
     .small-note {
       font-size: 10px;
       color: var(--text-muted);
@@ -356,22 +392,24 @@
       gap:10px;
       margin-top:10px;
       padding:10px 12px;
-      border:1px solid rgba(255, 127, 24, 0.30);
-      background: rgba(255, 127, 24, 0.10);
+      border:1px solid var(--accent);
+      background: var(--accent-soft);
       border-radius: 12px;
-      color: var(--text);
+      color: var(--text-main);
       font-size: 12px;
       line-height: 1.3;
     }
+
     .spinner{
       width: 14px;
       height: 14px;
       border-radius: 50%;
-      border: 2px solid rgba(0,0,0,0.15);
-      border-top-color: rgba(0,0,0,0.55);
+      border: 2px solid rgba(63, 165, 28, 0.25);
+      border-top-color: var(--accent);
       animation: spin 0.9s linear infinite;
       flex: 0 0 auto;
     }
+
     @keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
 
 </style>
@@ -380,7 +418,7 @@
 <div id="app">
 <aside id="sidebar">
 <div class="card">
-<h2>Location</h2>
+<h2>Location - World Wide</h2>
 <div class="row">
 <input id="locationInput" placeholder="e.g. Sydney" type="text"/>
 <button id="locationSearchBtn">Search</button>
@@ -396,26 +434,12 @@
 </div>
 
 <div class="card">
-<h2>Results</h2>
-<ul class="metric-list" style="margin-top:4px;">
-<li><span class="metric-label">Total panels</span><span class="metric-value" id="metricPanels">–</span></li>
-<li><span class="metric-label">Annual output</span><span class="metric-value" id="metricAnnual">–</span></li>
-<li><span class="metric-label">Mean POA</span><span class="metric-value" id="metricPOA">–</span></li>
-<li><span class="metric-label">Water saved</span><span class="metric-value" id="metricWaterSaved">–</span></li>
-</ul>
-<div class="row" style="margin-top:8px;">
-<button disabled="" id="downloadBtn">Download simulation data</button>
-</div>
-<div class="small-note" id="downloadHint">Exports an audit pack ZIP for Water runs (includes shading samples + SVF).</div>
-</div>
-
-<div class="card">
-<h2>Array</h2>
+<h2>Type of Solar Array</h2>
 <div class="row stacked">
 <label for="arrayType">Array type</label>
 <select id="arrayType">
 <option value="waves">Solar Waves</option>
-<option value="roof">Solar Roof</option>
+<option value="roof">Solar Canopy</option>
 </select>
 </div>
 <div class="row stacked">
@@ -434,21 +458,21 @@
 <div id="roofControls" style="display:none;">
 <div class="slider-block">
 <div class="slider-header">
-<span>Roof columns (X)</span>
+<span>Number of Solar Panels wide</span>
 <span class="value"><span id="roofColsVal">20</span></span>
 </div>
 <input id="roofCols" max="24" min="4" step="1" type="range" value="20"/>
 </div>
 <div class="slider-block">
 <div class="slider-header">
-<span>Roof rows (Y)</span>
+<span>Number of Solar Panels long</span>
 <span class="value"><span id="roofRowsVal">4</span></span>
 </div>
 <input id="roofRows" max="8" min="1" step="1" type="range" value="4"/>
 </div>
 <div class="slider-block">
 <div class="slider-header">
-<span>Roof tilt (deg)</span>
+<span>Canopy angle (in degrees)</span>
 <span class="value"><span id="roofTiltVal">15°</span></span>
 </div>
 <input id="roofTilt" max="40" min="0" step="1" type="range" value="15"/>
@@ -456,20 +480,20 @@
 </div>
 <div class="slider-block">
 <div class="slider-header">
-<span>Azimuth (deg)</span>
+<span>Rotation relative to North (in degrees)</span>
 <span class="value"><span id="azimuthVal">180°</span></span>
 </div>
 <input id="azimuth" max="360" min="0" step="1" type="range" value="180"/>
 </div>
 <div class="slider-block">
 <div class="slider-header">
-<span>Elevation off ground (m)</span>
+<span>Height above ground (in meters)</span>
 <span class="value"><span id="elevationVal">0.6 m</span></span>
 </div>
 <input id="elevation" max="10.0" min="0.0" step="0.1" type="range" value="0.6"/>
 </div>
 <div class="row stacked">
-<label for="surfaceType">Surface</label>
+<label for="surfaceType">On Ground or over Water</label>
 <select id="surfaceType">
 <option selected="" value="ground">Ground</option>
 <option value="water">Water</option>
@@ -497,23 +521,23 @@
 <div id="simError"></div>
 <div id="simStatus"></div>
 </div>
+<div class="card">
+<h2>Results</h2>
+<ul class="metric-list" style="margin-top:4px;">
+<li><span class="metric-label">Total panels</span><span class="metric-value" id="metricPanels">–</span></li>
+<li><span class="metric-label">Annual output</span><span class="metric-value" id="metricAnnual">–</span></li>
+<li><span class="metric-label">Mean POA</span><span class="metric-value" id="metricPOA">–</span></li>
+<li><span class="metric-label">Water saved</span><span class="metric-value" id="metricWaterSaved">–</span></li>
+</ul>
+<div class="row" style="margin-top:8px;">
+<button disabled="" id="downloadBtn">Download simulation data</button>
+</div>
+<div class="small-note" id="downloadHint">Exports an audit pack ZIP for Water runs (includes shading samples + SVF).</div>
+</div>
+
 </aside>
 <main id="main">
 <div id="canvasContainer"></div>
-<div id="legend">
-<div id="legend-title">
-<span>Ground / panel irradiance</span>
-<span id="legend-mean">Mean POA: –</span>
-</div>
-<div id="legend-bar"></div>
-<div id="legend-footer">
-<div class="legend-note">Higher colour = more annual light</div>
-<div class="legend-scale">
-<span id="legend-min">0</span>
-<span id="legend-max">1000</span>
-</div>
-</div>
-</div>
 <div id="locationModal">
 <div id="locationModalInner">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
@@ -4018,7 +4042,7 @@ async function runSimulationAndUpdateUI
 
           metricAnnualEl.textContent = formatAnnual(annual);
           metricPOAEl.textContent = formatPOA(meanPoa);
-          legendMeanEl.textContent = "Mean POA: " + formatPOA(meanPoa);
+          if (legendMeanEl) legendMeanEl.textContent = "Mean POA: " + formatPOA(meanPoa);
           // NOTE: Do not override the per-panel / ground field colours here.
           // Field shading + legend scaling are managed by snapshot/realtime shading handlers
           // (e.g., applySnapshotData / applyPanelHeatmapFromSun), which derive per-panel POA_eff
