@@ -47,6 +47,10 @@
       flex-direction: column;
       gap: 14px;
       font-size: 12px;
+      height: 100vh;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      box-sizing: border-box;
     }
 
     h2 {
@@ -217,6 +221,7 @@
   transform: translateY(1px);
   margin-right: 6px;
 }
+      }
 
 
     #simError {
@@ -412,17 +417,39 @@
 
     @keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
 
+
+    /* --- Map picker (Leaflet) --- */
+    .map-picker {
+      height: 220px; /* adjust as desired */
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.25);
+    }
+
+    .map-picker .leaflet-control {
+      box-shadow: none;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .small-note{
+      margin-top: 8px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.75);
+    }
+
 </style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 </head>
 <body>
 <div id="app">
 <aside id="sidebar">
 <div class="card">
 <h2>Location - World Wide</h2>
-<div class="row">
-<input id="locationInput" placeholder="e.g. Sydney" type="text"/>
-<button id="locationSearchBtn">Search</button>
-</div>
+<div id="mapPicker" class="map-picker" aria-label="World map location picker"></div>
+<div class="small-note">Click the map to select a location.</div>
 <div id="locationLoading" class="loading-pill" style="display:none;">
   <span class="spinner" aria-hidden="true"></span>
   <span id="locationLoadingText">Searching…</span>
@@ -558,7 +585,20 @@
 <script src="https://unpkg.com/three@0.140.0/examples/js/loaders/RGBELoader.js"></script>
 <script>
     (function() {
-      const API_BASE = "https://sw-api-sn0k.onrender.com";
+      const API_BASE = (() => {
+    // Allow overriding the API base via ?api=http://127.0.0.1:8000 (useful for local/offline testing)
+    try {
+      const qs = new URLSearchParams(window.location.search || "");
+      const forced = qs.get("api");
+      if (forced) return String(forced).replace(/\/+$/g, "");
+    } catch (_) {}
+
+    const host = (window.location && window.location.hostname) ? window.location.hostname : "";
+    if (host === "localhost" || host === "127.0.0.1") return "http://127.0.0.1:8000";
+    return "https://sw-api-sn0k.onrender.com";
+  })();
+
+  console.log("[API] API_BASE =", API_BASE);
 const DEBUG_FRAME = false;
 function dbgFrame(...args){ if (DEBUG_FRAME) console.log("[frame]", ...args); }
 // --- Real-time irradiance (hourly) via Open-Meteo (frontend) ------------------
@@ -670,8 +710,7 @@ function computePOA_Wm2_fromIrradiance(nWorld, sunRay, irr, surfaceType) {
       // DOM
       const canvasContainer = document.getElementById("canvasContainer");
 
-      const locationInput = document.getElementById("locationInput");
-      const locationSearchBtn = document.getElementById("locationSearchBtn");
+      const mapPickerEl = document.getElementById("mapPicker");
       const locationStatusEl = document.getElementById("locationStatus");
       const locationLoadingEl = document.getElementById("locationLoading");
 const locationLoadingTextEl = document.getElementById("locationLoadingText");
@@ -4083,6 +4122,7 @@ let savedLiters = estimateWaterSavingsLitersPerYear();
           simStatusEl.textContent = "";
         } finally {
           isSimRunning = false;
+          finalizeLocationLoading();
         }
       }
 
@@ -4117,6 +4157,132 @@ let savedLiters = estimateWaterSavingsLitersPerYear();
           throw new Error("HTTP " + resp.status);
         }
         return await resp.json();
+      }
+
+
+      async function reverseGeocode(lat, lon, signal) {
+        // Cache-bust to avoid any intermediary caching of error responses.
+        const url = API_BASE + "/reverse_geocode?lat=" + encodeURIComponent(lat)
+          + "&lon=" + encodeURIComponent(lon)
+          + "&_ts=" + Date.now();
+
+        const resp = await fetch(url, {
+          signal,
+          cache: "no-store"
+        });
+
+        if (!resp.ok) {
+          // Important for debugging: surface the URL that produced 404s.
+          const err = new Error("Reverse geocode failed: HTTP " + resp.status);
+          err.httpStatus = resp.status;
+          err.url = url;
+          throw err;
+        }
+        return await resp.json(); // { provider, display_name, lat, lon }
+      }
+
+      let _reverseGeocodeAbort = null;
+
+      let _leafletMap = null;
+      let _leafletMarker = null;
+      let _locationSelectionInProgress = false;
+      let _mapPickRequestId = 0;
+      let _mapPickDebounceT = null;
+
+      function _setMapMarker(lat, lon) {
+        if (_leafletMarker) {
+          _leafletMarker.setLatLng([lat, lon]);
+        }
+        if (_leafletMap) {
+          // keep current zoom if user already zoomed in
+          const z = _leafletMap.getZoom();
+          _leafletMap.setView([lat, lon], Math.max(z, 3), { animate: true });
+        }
+      }
+
+      async function pickLatLon(lat, lon, sourceLabel) {
+        const reqId = ++_mapPickRequestId;
+
+        // Abort any prior reverse-geocode request to prevent request pile-up and stale UI states.
+        try {
+          if (_reverseGeocodeAbort) _reverseGeocodeAbort.abort();
+        } catch (_) {}
+        _reverseGeocodeAbort = new AbortController();
+
+        _locationSelectionInProgress = true;
+        setLocationLoading(true, "Resolving location…");
+
+        try {
+          const res = await reverseGeocode(lat, lon, _reverseGeocodeAbort.signal);
+
+          // Ignore stale results (user clicked again) without altering current UI state.
+          if (reqId !== _mapPickRequestId) return;
+
+          _setMapMarker(lat, lon);
+
+          // apply into existing pipeline (rebuild + scheduleSimulation)
+          applyLocationResult(res, res.provider || sourceLabel || "map");
+
+          // keep pill visible until simulation completes (runSimulation -> finalizeLocationLoading)
+          setLocationLoading(true, "Data for simulation loading…");
+        } catch (err) {
+          // If a newer request exists, ignore errors from this one.
+          if (reqId !== _mapPickRequestId) return;
+
+          // AbortError is expected during rapid clicking.
+          if (err && err.name === "AbortError") return;
+
+          console.error("Map pick failed:", err);
+          if (err && err.url) {
+            console.warn("Reverse geocode URL:", err.url);
+          }
+
+          _locationSelectionInProgress = false;
+          setLocationLoading(false);
+          if (locationStatusEl) locationStatusEl.textContent = "Location selection failed. Try again.";
+        }
+      }
+
+      function initMapPicker() {
+        if (!mapPickerEl) return;
+        if (typeof L === "undefined") {
+          console.warn("Leaflet (L) not loaded; map picker disabled.");
+          return;
+        }
+        if (_leafletMap) return;
+
+        const initLat = (currentLocation && Number.isFinite(currentLocation.lat)) ? currentLocation.lat : -33.8688;
+        const initLon = (currentLocation && Number.isFinite(currentLocation.lon)) ? currentLocation.lon : 151.2093;
+
+        _leafletMap = L.map(mapPickerEl, {
+          worldCopyJump: true,
+          zoomControl: true,
+          attributionControl: true
+        }).setView([initLat, initLon], 2);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution: "&copy; OpenStreetMap contributors"
+        }).addTo(_leafletMap);
+
+        _leafletMarker = L.marker([initLat, initLon], { draggable: true }).addTo(_leafletMap);
+
+        // Click map to select (debounced)
+        _leafletMap.on("click", (ev) => {
+          const lat = ev.latlng.lat;
+          const lon = ev.latlng.lng;
+          if (_mapPickDebounceT) clearTimeout(_mapPickDebounceT);
+          _mapPickDebounceT = setTimeout(() => pickLatLon(lat, lon, "map"), 150);
+        });
+
+        // Drag marker to select (debounced)
+        _leafletMarker.on("dragend", () => {
+          const ll = _leafletMarker.getLatLng();
+          const lat = ll.lat;
+          const lon = ll.lng;
+          if (_mapPickDebounceT) clearTimeout(_mapPickDebounceT);
+          _mapPickDebounceT = setTimeout(() => pickLatLon(lat, lon, "map"), 150);
+        });
       }
 
       function openLocationModal(provider, results) {
@@ -4167,6 +4333,10 @@ function maybeSetEquatorFacingAzimuth() {
         currentLocation = { lat: latNum, lon: lonNum, name: res.display_name };
         currentProvider = provider;
 
+        if (Number.isFinite(latNum) && Number.isFinite(lonNum) && typeof _setMapMarker === "function") {
+          _setMapMarker(latNum, lonNum);
+        }
+
         metricLocationEl.textContent = res.display_name;
         if (downloadBtn) downloadBtn.disabled = false;
         if (Number.isFinite(latNum) && Number.isFinite(lonNum)) {
@@ -4187,11 +4357,17 @@ function setLocationLoading(isLoading, msg){
     locationLoadingEl.style.display = isLoading ? "flex" : "none";
   }
   if (locationLoadingTextEl && msg) locationLoadingTextEl.textContent = msg;
-  if (locationSearchBtn) {
-    locationSearchBtn.disabled = !!isLoading;
-    locationSearchBtn.textContent = isLoading ? "Searching…" : "Search";
+}
+
+function finalizeLocationLoading() {
+  // Only stop the pill/spinner if a location selection is actually in progress.
+  if (_locationSelectionInProgress) {
+    _locationSelectionInProgress = false;
+    setLocationLoading(false);
   }
 }
+
+
 
 async function searchAndMaybeSelectLocation(query, isInitial = false) {
         const qNorm = (query || "").trim();
@@ -4233,17 +4409,6 @@ async function searchAndMaybeSelectLocation(query, isInitial = false) {
       }
 
       function bindEvents() {
-        locationSearchBtn.addEventListener("click", () => {
-          const q = (locationInput.value || "").trim();
-          searchAndMaybeSelectLocation(q, false);
-        });
-
-        locationInput.addEventListener("keydown", (ev) => {
-          if (ev.key === "Enter") {
-            const q = (locationInput.value || "").trim();
-            searchAndMaybeSelectLocation(q, false);
-          }
-        });
 
         arrayTypeEl.addEventListener("change", () => {
           updateArrayTypeVisibility();
@@ -4558,9 +4723,9 @@ scheduleSimulation();
         updateGroundToArray(5);
 
         // Default location: Sydney, Australia
-        locationInput.value = "Sydney, Australia";
-        searchAndMaybeSelectLocation("Sydney, Australia", true);
-      }
+        initMapPicker();
+        // pick default using reverse geocode so the display name is consistent
+        pickLatLon(-33.8688, 151.2093, "default");}
 
       bootstrap();
     })();
