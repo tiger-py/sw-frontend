@@ -876,7 +876,7 @@ let waterShadowMesh = null;
         // For Water: apply as alphaMap on a dedicated overlay mesh so the shadow is one color and smooth.
         if (!maskPixels || !w || !h || !groundMesh) return;
 
-        const isWater = (surfaceEl && surfaceEl.value === "Water");
+        const isWater = (surfaceEl && String(surfaceEl.value).toLowerCase() === "water");
         const n = w * h;
 
         // Build RGBA buffer
