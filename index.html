@@ -140,7 +140,7 @@
     .metric-list li {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 2px;
+      margin-bottom: 6px;
     }
 
     .metric-label { color: var(--text-muted); }
@@ -238,6 +238,10 @@
       font-size: 10px;
       color: var(--text-muted);
       margin-top: 2px;
+    
+      display: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
     }
 
     /* Main 3D area */
@@ -258,7 +262,7 @@
       right: 10px;
       width: 180px;
       background: rgba(255, 255, 255, 0.96);
-      backdrop-filter: blur(6px);
+      backdrop-filter: blur(4px);
       padding: 8px 10px;
       border-radius: var(--radius-lg);
       border: 1px solid var(--border-subtle);
@@ -438,12 +442,91 @@
       color: rgba(255,255,255,0.75);
     }
 
+
+    /* ------------------------------------------------------------
+       Initial loading overlay (Option A)
+       ------------------------------------------------------------ */
+    #loadingOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      transition: opacity 320ms ease;
+    }
+    #loadingOverlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .loading-card {
+      width: min(420px, calc(100vw - 48px));
+      border-radius: 16px;
+      padding: 22px 22px 18px 22px;
+      background: var(--accent);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 14px 50px rgba(0, 0, 0, 0.45);
+      color: #ffffff;
+      text-align: left;
+    }
+    .loading-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      margin-bottom: 10px;
+    }
+    .loading-status {
+      font-size: 14px;
+      opacity: 0.92;
+      margin-bottom: 14px;
+      line-height: 1.35;
+    }
+    .loading-bar-wrap {
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.35);
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.10);
+    }
+    .loading-bar {
+      height: 100%;
+      width: 0%;
+      background: rgba(255, 255, 255, 0.95);
+      transition: width 140ms ease;
+    }
+    .loading-percent {
+      margin-top: 10px;
+      font-size: 12px;
+      opacity: 0.82;
+    }
+
+    /* Hide canvas until first clean render is ready (prevents half-built visuals) */
+    #canvasContainer {
+      opacity: 0;
+      transition: opacity 260ms ease;
+    }
+    #canvasContainer.ready {
+      opacity: 1;
+    }
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 </head>
 <body>
+<div id="loadingOverlay" aria-live="polite" aria-busy="true">
+  <div class="loading-card">
+    <div class="loading-title">Solar Waves</div>
+    <div id="loadingStatus" class="loading-status">Loading textures…</div>
+    <div class="loading-bar-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div id="loadingBar" class="loading-bar"></div>
+    </div>
+    <div id="loadingPercent" class="loading-percent">0%</div>
+  </div>
+</div>
 <div id="app">
 <aside id="sidebar">
 <div class="card">
@@ -456,7 +539,8 @@
 </div>
 <div class="small-note" id="locationStatus">No location selected.</div>
 <ul class="metric-list" style="margin-top:4px;">
-<li><span class="metric-label">Selected</span><span class="metric-value" id="metricLocation">–</span></li>
+<li><span class="metric-label">Latitude:</span><span class="metric-value" id="metricLat">–</span></li>
+<li><span class="metric-label">Longitude:</span><span class="metric-value" id="metricLon">–</span></li>
 </ul>
 </div>
 
@@ -526,13 +610,6 @@
 <option value="water">Water</option>
 </select>
 </div>
-<div class="row stacked">
-<label for="renderMode">Rendering mode</label>
-<select id="renderMode">
-<option value="textures" selected>Realistic textures</option>
-<option value="heatmap">Snapshot / heatmap</option>
-</select>
-</div>
 <div class="slider-block" id="waterWidthRow" style="display:none;">
 <div class="slider-header">
 <span>Water width (m)</span>
@@ -546,17 +623,15 @@
           Panel / ground colours show relative irradiance; brighter ≈ more annual light.
         </div>
 <div id="simError"></div>
-<div id="simStatus"></div>
 </div>
 <div class="card">
 <h2>Results</h2>
 <ul class="metric-list" style="margin-top:4px;">
-<li><span class="metric-label">Total panels</span><span class="metric-value" id="metricPanels">–</span></li>
-<li><span class="metric-label">Annual output</span><span class="metric-value" id="metricAnnual">–</span></li>
-<li><span class="metric-label">Mean POA</span><span class="metric-value" id="metricPOA">–</span></li>
-<li><span class="metric-label">Water saved</span><span class="metric-value" id="metricWaterSaved">–</span></li>
+<li><span class="metric-label">Total panels:</span><span class="metric-value" id="metricPanels">–</span></li>
+<li><span class="metric-label">Power Output per Annum:</span><span class="metric-value" id="metricAnnual">–</span></li>
+<li><span class="metric-label">Water saved:</span><span class="metric-value" id="metricWaterSaved">–</span></li>
 </ul>
-<div class="row" style="margin-top:8px;">
+<div class="row" style="margin-top:14px;">
 <button disabled="" id="downloadBtn">Download simulation data</button>
 </div>
 <div class="small-note" id="downloadHint">Exports an audit pack ZIP for Water runs (includes shading samples + SVF).</div>
@@ -710,15 +785,84 @@ function computePOA_Wm2_fromIrradiance(nWorld, sunRay, irr, surfaceType) {
       // DOM
       const canvasContainer = document.getElementById("canvasContainer");
 
+
+      // ------------------------------------------------------------
+      // Initial loading overlay (Option A)
+      // ------------------------------------------------------------
+      const loadingOverlayEl = document.getElementById("loadingOverlay");
+      const loadingStatusEl = document.getElementById("loadingStatus");
+      const loadingBarEl = document.getElementById("loadingBar");
+      const loadingPercentEl = document.getElementById("loadingPercent");
+
+      let __firstVisualReady = false;
+
+      let __progressFloor = 0;
+
+      function setLoadingStatus(msg) {
+        if (!loadingStatusEl) return;
+        loadingStatusEl.textContent = msg || "";
+      }
+
+      function setLoadingProgress(ratio01) {
+        const r0 = Math.max(0, Math.min(1, Number(ratio01 || 0)));
+        const r = Math.max(__progressFloor, r0);
+        __progressFloor = r;
+        const pct = Math.round(r * 100);
+        if (loadingBarEl) loadingBarEl.style.width = pct + "%";
+        if (loadingPercentEl) loadingPercentEl.textContent = pct + "%";
+        if (loadingOverlayEl) {
+          const pb = loadingOverlayEl.querySelector('.loading-bar-wrap');
+          if (pb) pb.setAttribute("aria-valuenow", String(pct));
+        }
+      }
+
+      function markFirstVisualReady() {
+        if (__firstVisualReady) return;
+        __firstVisualReady = true;
+
+        // Ensure the final, textured scene has been presented at least once.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            try { canvasContainer.classList.add("ready"); } catch (_) {}
+            if (loadingOverlayEl) {
+              loadingOverlayEl.classList.add("hidden");
+              loadingOverlayEl.setAttribute("aria-busy", "false");
+              // remove from flow after fade to avoid intercepting clicks
+              setTimeout(() => {
+                try { loadingOverlayEl.style.display = "none"; } catch (_) {}
+              }, 380);
+            }
+          });
+        });
+      }
+
+      // One shared loading manager for texture + HDR assets (enables real progress).
+      const _loadingManager = new THREE.LoadingManager();
+      _loadingManager.onStart = () => {
+        // Do not reset progress on subsequent batches; keep it monotonic for initial load.
+        if (__progressFloor <= 0) setLoadingProgress(0);
+      };
+      _loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
+        if (itemsTotal && itemsTotal > 0) setLoadingProgress(itemsLoaded / itemsTotal);
+      };
+      _loadingManager.onLoad = () => {
+        setLoadingProgress(1);
+      };
+
+      // Default overlay text
+      setLoadingStatus("Loading textures…");
+      setLoadingProgress(0);
+
       const mapPickerEl = document.getElementById("mapPicker");
       const locationStatusEl = document.getElementById("locationStatus");
       const locationLoadingEl = document.getElementById("locationLoading");
 const locationLoadingTextEl = document.getElementById("locationLoadingText");
-const metricLocationEl = document.getElementById("metricLocation");
+const metricLatEl = document.getElementById("metricLat");
+      const metricLonEl = document.getElementById("metricLon");
       const metricPanelsEl = document.getElementById("metricPanels");
       const metricAnnualEl = document.getElementById("metricAnnual");
       const metricPOAEl = document.getElementById("metricPOA");
-            const metricWaterSavedEl = document.getElementById("metricWaterSaved");
+      const metricWaterSavedEl = document.getElementById("metricWaterSaved");
       const downloadBtn = document.getElementById("downloadBtn");
       const downloadHint = document.getElementById("downloadHint");
       const arrayTypeEl = document.getElementById("arrayType");
@@ -738,7 +882,6 @@ const metricLocationEl = document.getElementById("metricLocation");
       const elevationEl = document.getElementById("elevation");
       const elevationValEl = document.getElementById("elevationVal");
       const surfaceTypeEl = document.getElementById("surfaceType");
-      const renderModeEl = document.getElementById("renderMode");
 const surfaceEl = surfaceTypeEl; // alias for legacy references
 
       const waterWidthEl = document.getElementById("waterWidth");
@@ -1340,13 +1483,14 @@ const color = scalarToColor(valForColor, vmin, vmax);
       }
 
       function initRealisticMaterialsIfNeeded() {
+        if (!__firstVisualReady) setLoadingStatus("Loading textures…");
         // Loads external PBR texture sets once and builds materials.
         // This keeps rendering self-consistent and allows IBL (HDR) lighting to do most of the work.
         if (_matPVTop && _matGroundTextured && _matWaterTextured) return Promise.resolve();
 
         if (_pbrInitPromise) return _pbrInitPromise;
 
-        const TL = new THREE.TextureLoader();
+        const TL = new THREE.TextureLoader(_loadingManager);
 
         function loadTex(url, opts) {
           opts = opts || {};
@@ -1619,6 +1763,7 @@ if (wR) {
       }
 
       async function enableTextureLightingIfNeeded() {
+        if (!__firstVisualReady) setLoadingStatus("Finalizing lighting…");
         // HDR IBL for PBR mode. Background remains unchanged; only scene.environment is set.
         if (!renderer || !scene) return;
         if (scene.environment && _envMapTex) return;
@@ -1631,7 +1776,7 @@ if (wR) {
             if (!_pmremGen) _pmremGen = new THREE.PMREMGenerator(renderer);
             _pmremGen.compileEquirectangularShader();
 
-            const loader = new THREE.RGBELoader();
+            const loader = new THREE.RGBELoader(_loadingManager);
             loader.load(
               HDR_URL,
               (hdrTex) => {
@@ -1753,31 +1898,14 @@ if (wR) {
           ]).then(() => {
             applyRenderModeToGround();
             applyRenderModeToPanels();
+            // First clean render can be revealed once materials + IBL are applied.
+            if (!__firstVisualReady) markFirstVisualReady();
           });
         } else {
           // Heatmap mode: remove IBL so heatmap readability remains stable/predictable.
           disableTextureLighting();
           applyRenderModeToGround();
           applyRenderModeToPanels();
-        }
-      }
-
-      function setRenderMode(mode) {
-        const m = (mode === 'heatmap') ? 'heatmap' : 'textures';
-        if (currentRenderMode === m) return;
-        currentRenderMode = m;
-
-        // If switching into textures, ensure any snapshot-derived emissive state doesn't persist.
-        if (currentRenderMode === 'textures') {
-          resetSnapshotState();
-        }
-
-        applyRenderModeToScene();
-
-        // In heatmap mode we need a fresh simulation tick to repopulate colors quickly.
-        // In texture mode, the numeric simulation continues as-is; only rendering changes.
-        if (currentRenderMode === 'heatmap') {
-          scheduleSimulation();
         }
       }
 
@@ -3903,6 +4031,7 @@ function makePanelTemplateFromMeta(meta) {
       }
 
       function rebuildArrayGeometry() {
+  if (!__firstVisualReady) setLoadingStatus("Building solar array…");
   invalidateWaterState("rebuildArrayGeometry");
   if (!arrayGroup) return;
   clearArrayGroup();
@@ -4020,7 +4149,7 @@ async function runSimulationAndUpdateUI
         };
 
         simErrorEl.style.display = "none";
-        simStatusEl.textContent = "Running simulation…";
+        if (simStatusEl) simStatusEl.textContent = "Running simulation…";
         isSimRunning = true;
 
         try {
@@ -4037,7 +4166,7 @@ async function runSimulationAndUpdateUI
           let shadedPayload = payload;
 
           if (useShaded) {
-            simStatusEl.textContent = "Computing shading samples…";
+            if (simStatusEl) simStatusEl.textContent = "Computing shading samples…";
 
             const samples = await buildShadingSamplesGPU({
               year,
@@ -4080,7 +4209,7 @@ async function runSimulationAndUpdateUI
           lastSimMeanPOA = meanPoa;
 
           metricAnnualEl.textContent = formatAnnual(annual);
-          metricPOAEl.textContent = formatPOA(meanPoa);
+          if (metricPOAEl) metricPOAEl.textContent = formatPOA(meanPoa);
           if (legendMeanEl) legendMeanEl.textContent = "Mean POA: " + formatPOA(meanPoa);
           // NOTE: Do not override the per-panel / ground field colours here.
           // Field shading + legend scaling are managed by snapshot/realtime shading handlers
@@ -4111,7 +4240,7 @@ let savedLiters = estimateWaterSavingsLitersPerYear();
             savedLiters == null ? "–" : formatLitersPerYear(savedLiters);
 
 
-          simStatusEl.textContent = "Simulation up to date.";
+          if (simStatusEl) simStatusEl.textContent = "";
           fetchSnapshotDay(payload).catch(err => {
             console.warn("Snapshot day fetch failed", err);
           });
@@ -4119,7 +4248,7 @@ let savedLiters = estimateWaterSavingsLitersPerYear();
           console.error("Simulation error", err);
           simErrorEl.style.display = "block";
           simErrorEl.textContent = "Simulation error: " + (err.message || String(err));
-          simStatusEl.textContent = "";
+          if (simStatusEl) simStatusEl.textContent = "";
         } finally {
           isSimRunning = false;
           finalizeLocationLoading();
@@ -4257,13 +4386,12 @@ let savedLiters = estimateWaterSavingsLitersPerYear();
         _leafletMap = L.map(mapPickerEl, {
           worldCopyJump: true,
           zoomControl: true,
-          attributionControl: true
+          attributionControl: false
         }).setView([initLat, initLon], 2);
 
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 19,
-          attribution: "&copy; OpenStreetMap contributors"
-        }).addTo(_leafletMap);
+          attribution: ""}).addTo(_leafletMap);
 
         _leafletMarker = L.marker([initLat, initLon], { draggable: true }).addTo(_leafletMap);
 
@@ -4337,13 +4465,13 @@ function maybeSetEquatorFacingAzimuth() {
           _setMapMarker(latNum, lonNum);
         }
 
-        metricLocationEl.textContent = res.display_name;
+        if (metricLatEl) metricLatEl.textContent = Number.isFinite(latNum) ? latNum.toFixed(4) : "–";
+        if (metricLonEl) metricLonEl.textContent = Number.isFinite(lonNum) ? lonNum.toFixed(4) : "–";
         if (downloadBtn) downloadBtn.disabled = false;
         if (Number.isFinite(latNum) && Number.isFinite(lonNum)) {
-          locationStatusEl.textContent =
-            "Selected via " + provider + ". Lat " + latNum.toFixed(4) + ", Lon " + lonNum.toFixed(4) + ".";
+          locationStatusEl.textContent = "Selected via " + provider + (res.display_name ? (": " + res.display_name) : ".");
         } else {
-          locationStatusEl.textContent = "Selected via " + provider + ".";
+          locationStatusEl.textContent = "Selected via " + provider + (res.display_name ? (": " + res.display_name) : ".");
         }
         maybeSetEquatorFacingAzimuth();
         maybeSetEquatorFacingAzimuth();
@@ -4426,13 +4554,6 @@ async function searchAndMaybeSelectLocation(query, isInitial = false) {
         rebuildArrayGeometry();
           scheduleSimulation();
         });
-
-        if (renderModeEl) {
-          renderModeEl.addEventListener("change", () => {
-            const v = String(renderModeEl.value || "textures");
-            setRenderMode(v);
-          });
-        }
 
         panelTypeEl.addEventListener("change", () => {
           updatePanelMetaDisplay();
